@@ -21,7 +21,7 @@ public:
 
     ofVbo vbo;
     
-    ofTexture texture;
+    ofTexture * texture;
     vector<ofIndexType> indices;
     
     ofMaterial material;

@@ -9,6 +9,7 @@
 
 ofxAssimpMeshHelper::ofxAssimpMeshHelper() {
     mesh = NULL;
+    texture = NULL;
     blendMode = OF_BLENDMODE_ALPHA;
     twoSided = false;
     hasChanged = false;

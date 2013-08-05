@@ -12,7 +12,7 @@ ofxAssimpModelLoader::ofxAssimpModelLoader(){
 }
 
 ofxAssimpModelLoader::~ofxAssimpModelLoader(){
-    //
+    clear();
 }
 
 //------------------------------------------
@@ -197,16 +197,34 @@ void ofxAssimpModelLoader::loadGLResources(){
 
         // TODO: handle other aiTextureTypes
         if(AI_SUCCESS == mtl->GetTexture(aiTextureType_DIFFUSE, texIndex, &texPath)){
-            ofLog(OF_LOG_VERBOSE, "loading image from %s", texPath.data);
-            string modelFolder = file.getEnclosingDirectory();
-            string relTexPath = ofFilePath::getEnclosingDirectory(texPath.data,false);
-            string texFile = ofFilePath::getFileName(texPath.data);
-            string realPath = modelFolder + relTexPath  + texFile;
-			if(!ofFile::doesFileExist(realPath) || !ofLoadImage(meshHelper.texture,realPath)) {
-                ofLog(OF_LOG_ERROR,string("error loading image ") + file.getFileName() + " " +realPath);
-			}else{
-                ofLog(OF_LOG_VERBOSE, "texture width: %f height %f", meshHelper.texture.getWidth(), meshHelper.texture.getHeight());
+            map<string, ofTexture *>::iterator it = textures.find(texPath.data);
+            if (it == textures.end()) {
+                // Create a new texture
+                ofLog(OF_LOG_VERBOSE, "loading image from %s", texPath.data);
+                
+                ofTexture * tex = new ofTexture();
+                
+                string modelFolder = file.getEnclosingDirectory();
+                string relTexPath = ofFilePath::getEnclosingDirectory(texPath.data,false);
+                string texFile = ofFilePath::getFileName(texPath.data);
+                string realPath = modelFolder + relTexPath  + texFile;
+                
+                if (!ofFile::doesFileExist(realPath) || !ofLoadImage(*tex, realPath)) {
+                    ofLog(OF_LOG_ERROR,string("error loading image ") + file.getFileName() + " " +realPath);
+                }
+                else {
+                    ofLog(OF_LOG_VERBOSE, "texture width: %f height %f", tex->getWidth(), tex->getHeight());
+                    
+                    textures[texPath.data] = tex;
+                    meshHelper.texture = tex;
+                }
 			}
+            else {
+                // Reuse an already loaded texture
+                ofLog(OF_LOG_VERBOSE, "reusing image from %s", texPath.data);
+
+                meshHelper.texture = (it->second);
+            }
         }
 
         meshHelper.mesh = mesh;
@@ -278,6 +296,11 @@ void ofxAssimpModelLoader::clear(){
     rotAngle.clear();
     rotAxis.clear();
     lights.clear();
+    
+    for (map<string, ofTexture *>::iterator it = textures.begin(); it != textures.end(); ++it) {
+        delete it->second;
+    }
+    textures.clear();
 
     scale = ofPoint(1, 1, 1);
 	if(scene){
@@ -652,8 +675,8 @@ void ofxAssimpModelLoader::draw(ofPolyRenderMode renderType) {
         ofPushMatrix();
         ofMultMatrix(mesh.matrix);
         
-        if(bUsingTextures && mesh.texture.isAllocated()){
-            mesh.texture.bind();
+        if(bUsingTextures && mesh.texture->isAllocated()){
+            mesh.texture->bind();
         }
         
         if(bUsingMaterials){
@@ -684,8 +707,8 @@ void ofxAssimpModelLoader::draw(ofPolyRenderMode renderType) {
         }
 #endif
         
-        if(bUsingTextures && mesh.texture.bAllocated()){
-            mesh.texture.unbind();
+        if(bUsingTextures && mesh.texture->bAllocated()){
+            mesh.texture->unbind();
         }
         
         if(bUsingMaterials){
@@ -812,7 +835,7 @@ ofMaterial ofxAssimpModelLoader::getMaterialForMesh(int num){
 ofTexture ofxAssimpModelLoader::getTextureForMesh(string name){
 	for(int i=0; i<(int)modelMeshes.size(); i++){
 		if(string(modelMeshes[i].mesh->mName.data)==name){
-			return modelMeshes[i].texture;
+			return *(modelMeshes[i].texture);
 		}
 	}
 	ofLog(OF_LOG_ERROR,"couldn't find mesh " + name);
@@ -826,7 +849,7 @@ ofTexture ofxAssimpModelLoader::getTextureForMesh(int num){
 		ofLog(OF_LOG_ERROR,"couldn't find mesh " + ofToString(num) + " there's only " + ofToString(scene->mNumMeshes));
 		return ofTexture();
 	}
-	return modelMeshes[num].texture;
+	return *(modelMeshes[num].texture);
 }
 
 //-------------------------------------------

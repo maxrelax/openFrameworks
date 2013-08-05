@@ -17,6 +17,7 @@
 #include "ofMain.h"
 #include "ofxAssimpMeshHelper.h"
 #include "ofxAssimpAnimation.h"
+#include <map>
 
 class aiScene;
 class aiNode;
@@ -145,6 +146,8 @@ class ofxAssimpModelLoader{
         ofPoint scale;
         ofPoint pos;
         ofMatrix4x4 modelMatrix;
+    
+        map<string, ofTexture *> textures;
 
         vector<ofLight> lights;
         vector<ofxAssimpMeshHelper> modelMeshes;
