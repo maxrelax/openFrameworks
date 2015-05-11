@@ -389,16 +389,18 @@ int count = 0;
 {
     if (![self isLoaded]) return NO;
     
-    if (_bBuffering && self.player.currentItem.loadedTimeRanges.count > 0) {
-        // Check how much we've buffered out of the total.
+    if (_bBuffering) {
         NSArray *loadedTimeRanges = [self.player.currentItem loadedTimeRanges];
-        CMTimeRange timeRange = [[loadedTimeRanges objectAtIndex:0] CMTimeRangeValue];
-        Float64 startSeconds = CMTimeGetSeconds(timeRange.start);
-        Float64 durationSeconds = CMTimeGetSeconds(timeRange.duration);
-        _bufferDuration = startSeconds + durationSeconds;
-        
-        if ([self duration] > 0.0 && _bufferDuration == [self duration]) {
-            _bBuffering = false;
+        if (loadedTimeRanges.count > 0) {
+            // Check how much we've buffered out of the total.
+            CMTimeRange timeRange = [[loadedTimeRanges objectAtIndex:0] CMTimeRangeValue];
+            Float64 startSeconds = CMTimeGetSeconds(timeRange.start);
+            Float64 durationSeconds = CMTimeGetSeconds(timeRange.duration);
+            _bufferDuration = startSeconds + durationSeconds;
+            
+            if ([self duration] > 0.0 && _bufferDuration == [self duration]) {
+                _bBuffering = false;
+            }
         }
     }
     
