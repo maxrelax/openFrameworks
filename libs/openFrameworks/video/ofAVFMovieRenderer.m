@@ -124,7 +124,6 @@ int count = 0;
     NSString *tracksKey = @"tracks";
     
     [asset loadValuesAsynchronouslyForKeys:@[tracksKey] completionHandler: ^{
-        static const NSString *kItemStatusContext;
         // Perform the following back on the main thread
         dispatch_async(dispatch_get_main_queue(), ^{
             // Check to see if the file loaded
@@ -157,8 +156,11 @@ int count = 0;
                 _frameRate = [mainTrack nominalFrameRate];
                 
                 self.playerItem = [AVPlayerItem playerItemWithAsset:asset];
-                [self.playerItem addObserver:self forKeyPath:@"status" options:0 context:&kItemStatusContext];
-                
+                [self.playerItem addObserver:self
+                                  forKeyPath:@"status"
+                                     options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
+                                     context:nil];
+
                 // Notify this object when the player reaches the end
                 // This allows us to loop the video
                 [[NSNotificationCenter defaultCenter] addObserver:self
@@ -293,7 +295,6 @@ int count = 0;
 - (void)dealloc
 {
     [self stop];
-            
 
 	self.playerItemVideoOutput = nil;
 
@@ -319,7 +320,8 @@ int count = 0;
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 	
     if (self.playerItem) {
-        [self.playerItem removeObserver:self forKeyPath:@"status"];
+        [self.playerItem removeObserver:self
+                             forKeyPath:@"status"];
         self.playerItem = nil;
     }
 
@@ -368,7 +370,10 @@ int count = 0;
 //--------------------------------------------------------------
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
-    // Keep this around for now, maybe we'll need it.
+    if ([keyPath isEqualToString:@"status"]) {
+        NSLog(@"Status changed.");
+        NSLog(@"%@", change);
+    }
 }
 
 //--------------------------------------------------------------
