@@ -412,6 +412,14 @@ bool ofVideoPlayer::isBuffering(){
 }
 
 //----------------------------------------------------------
+bool ofVideoPlayer::isBufferLikelyToKeepUp(){
+    if( player != NULL ){
+        return player->isBufferLikelyToKeepUp();
+    }
+    return true;
+}
+
+//----------------------------------------------------------
 float ofVideoPlayer::getBufferDuration(){
     if(	player != NULL ){
         return player->getBufferDuration();

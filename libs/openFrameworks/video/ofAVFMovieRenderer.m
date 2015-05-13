@@ -394,7 +394,7 @@ int count = 0;
 {
     if (![self isLoaded]) return NO;
     
-    if (_bBuffering) {
+    if (self.isBuffering || !self.isLikelyToKeepUp) {
         NSArray *loadedTimeRanges = [self.player.currentItem loadedTimeRanges];
         if (loadedTimeRanges.count > 0) {
             // Check how much we've buffered out of the total.

@@ -256,7 +256,7 @@ bool ofAVFoundationPlayer::isBuffering()
 }
 
 //--------------------------------------------------------------
-bool ofAVFoundationPlayer::isLikelyToKeepUp()
+bool ofAVFoundationPlayer::isBufferLikelyToKeepUp()
 {
     return moviePlayer && [moviePlayer isLikelyToKeepUp];
 }

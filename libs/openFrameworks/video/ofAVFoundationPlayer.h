@@ -54,9 +54,9 @@ public:
     bool                isAudioLoaded();
     
     bool                isBuffering();
+    bool                isBufferLikelyToKeepUp();
     float               getBufferDuration();
     float               getBufferProgress();
-    bool                isLikelyToKeepUp();
     
     bool                isPlaying();
     bool                getIsMovieDone();
