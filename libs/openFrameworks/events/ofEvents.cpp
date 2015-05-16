@@ -374,6 +374,16 @@ void ofNotifyMouseMoved(int x, int y){
 	ofNotifyEvent( ofEvents().mouseMoved, mouseEventArgs );
 }
 
+void ofNotifyMouseScrolled(float x, float y){
+    ofMouseEventArgs mouseEventArgs;
+    
+    mouseEventArgs.x = x;
+    mouseEventArgs.y = y;
+    mouseEventArgs.type = ofMouseEventArgs::Scrolled;
+    
+    ofNotifyEvent( ofEvents().mouseScrolled, mouseEventArgs );
+}
+
 //------------------------------------------
 void ofNotifyExit(){
 	ofNotifyEvent( ofEvents().exit, voidEventArgs );
