@@ -30,7 +30,13 @@ class ofDragInfo{
 // event arguments, this are used in oF to pass
 // the data when notifying events
 
-class ofEventArgs{};
+class ofEventArgs{
+public:
+    ofEventArgs()
+    : canceled(false) //JG added 5/15/2015 to cancel mouse clicks in HUD
+    {}
+    bool canceled;
+};
 
 class ofEntryEventArgs : public ofEventArgs {
 public:
