@@ -20,9 +20,9 @@
 
 #include <sndfile.h>
 
-#ifdef OF_USING_MPG123
-#include <mpg123.h>
-#endif
+//#ifdef OF_USING_MPG123
+//#include <mpg123.h>
+//#endif
 
 //		TO DO :
 //		---------------------------
@@ -40,7 +40,7 @@
 // --------------------- global functions:
 //void ofFmodSoundStopAll();
 //void ofFmodSoundSetVolume(float vol);
-void ofOpenALSoundUpdate();						// calls FMOD update.
+//void ofOpenALSoundUpdate();						// calls FMOD update.
 //float * ofFmodSoundGetSpectrum(int nBands);		// max 512...
 
 //virtual void loadSound(string fileName, bool stream = false) = 0;
@@ -98,8 +98,6 @@ public:
     float getDuration();
     int getNumChannels();
     
-    static void initialize();
-    static void close();
     
     //averaging implementation
     vector<float>& getSpectrum(int bands);
@@ -111,7 +109,7 @@ public:
     
     float * getSystemSpectrum(int bands);
     
-    static ALCcontext * alContext;
+    
 protected:
     
     void threadedFunction();
@@ -127,10 +125,10 @@ protected:
     
     bool sfReadFile(string path,vector<short> & buffer,vector<float> & fftAuxBuffer);
     bool sfStream(string path,vector<short> & buffer,vector<float> & fftAuxBuffer);
-#ifdef OF_USING_MPG123
-    bool mpg123ReadFile(string path,vector<short> & buffer,vector<float> & fftAuxBuffer);
-    bool mpg123Stream(string path,vector<short> & buffer,vector<float> & fftAuxBuffer);
-#endif
+//#ifdef OF_USING_MPG123
+//    bool mpg123ReadFile(string path,vector<short> & buffer,vector<float> & fftAuxBuffer);
+//    bool mpg123Stream(string path,vector<short> & buffer,vector<float> & fftAuxBuffer);
+//#endif
     bool decoderReadFile(string path,vector<short> & buffer,vector<float> & fftAuxBuffer);
     
     void readFile(string fileName,vector<short> & buffer);
@@ -147,9 +145,11 @@ protected:
     float speed; // -n to n, 1 = normal, -1 backwards
     unsigned int length; // in samples;
     
-    static ALCdevice * alDevice;
-    
-    
+    ALCdevice* alDevice;
+    ALCcontext* alContext;
+    void initialize();
+    void close();
+
     vector<float> window;
     float windowSum;
     float bandWidth;
@@ -198,5 +198,6 @@ protected:
     
     bool timeSet;
     float justSetTime;
+    bool checkErrors(string description);
 };
 

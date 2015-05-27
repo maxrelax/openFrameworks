@@ -23,8 +23,8 @@ void ofSoundSetVolume(float vol){
 void ofSoundUpdate(){
 	#ifdef OF_SOUND_PLAYER_FMOD
 		ofFmodSoundUpdate();
-    #elif OF_SOUND_PLAYER_OPENAL
-        ofOpenALSoundUpdate();
+    #elif defined(OF_SOUND_PLAYER_OPENAL)
+        //ofOpenALSoundUpdate();
 	#endif
 }
 
