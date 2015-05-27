@@ -26,7 +26,7 @@ vector<kiss_fft_cpx> ofOpenALSoundPlayer::systemCx_out;
 
 static set<ofOpenALSoundPlayer*> players;
 
-void ofOpenALSoundUpdate_TimelineAdditions(){
+void ofOpenALSoundUpdate(){
     alcProcessContext(ofOpenALSoundPlayer::alContext);
 }
 

@@ -40,7 +40,7 @@
 // --------------------- global functions:
 //void ofFmodSoundStopAll();
 //void ofFmodSoundSetVolume(float vol);
-//void ofOpenALSoundUpdate();						// calls FMOD update.
+void ofOpenALSoundUpdate();						// calls FMOD update.
 //float * ofFmodSoundGetSpectrum(int nBands);		// max 512...
 
 //virtual void loadSound(string fileName, bool stream = false) = 0;
@@ -116,7 +116,7 @@ protected:
     
     void threadedFunction();
     
-    void ofOpenALSoundUpdate();
+//    void ofOpenALSoundUpdate();
     void update(ofEventArgs & args);
     void initFFT(int bands);
     float * getCurrentBufferSum(int size);
