@@ -17,17 +17,6 @@ void ofSoundShutdown();
 #include "ofBaseTypes.h"
 #include "ofBaseSoundPlayer.h"
 
-
-#ifdef OF_SOUND_PLAYER_QUICKTIME
-#include "ofQuicktimeSoundPlayer.h"
-#define OF_SOUND_PLAYER_TYPE ofQuicktimeSoundPlayer
-#endif
-
-#ifdef OF_SOUND_PLAYER_FMOD
-#include "ofFmodSoundPlayer.h"
-#define OF_SOUND_PLAYER_TYPE ofFmodSoundPlayer
-#endif
-
 #ifdef OF_SOUND_PLAYER_OPENAL
 #include "ofOpenALSoundPlayer.h"
 #define OF_SOUND_PLAYER_TYPE ofOpenALSoundPlayer
