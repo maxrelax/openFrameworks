@@ -13,8 +13,8 @@
 
 #include "ofxAudioDecoder.h"
 
-//ALCdevice * ofOpenALSoundPlayer::alDevice = 0;
-//ALCcontext * ofOpenALSoundPlayer::alContext = 0;
+//ALCdevice * ofOpenALSoundPlayer::alDevice = NULL;
+//ALCcontext * ofOpenALSoundPlayer::alContext = NULL;
 //vector<float> ofOpenALSoundPlayer::window;
 //float ofOpenALSoundPlayer::windowSum=0;
 
@@ -75,10 +75,6 @@ void ofOpenALSoundPlayer::initialize(){
         alContext = alcCreateContext(alDevice,NULL);
         alcMakeContextCurrent (alContext);
         alListener3f(AL_POSITION, 0,0,0);
-//#ifdef OF_USING_MPG123
-//        mpg123_init();
-//#endif
-        
     }
 }
 
@@ -391,9 +387,6 @@ bool ofOpenALSoundPlayer::loadSound(string fileName, bool is_stream){
     
     fileName = ofToDataPath(fileName);
     checkErrors("pre initiaze OpenAL " + fileName);
-//    if(!checkErrors("pre initiaze OpenAL " + fileName)){
-//        return false;
-//    }
 
     // try to unload any previously loaded sounds
     // & prevent user-created memory leaks
@@ -409,7 +402,6 @@ bool ofOpenALSoundPlayer::loadSound(string fileName, bool is_stream){
     bMultiPlay = false;
     isStreaming = is_stream;
 
-    
     // init sound systems, if necessary
     initialize();
 
@@ -611,10 +603,13 @@ void ofOpenALSoundPlayer::update(ofEventArgs & args){
         }
     }
     
+    
     if(alContext != NULL){
         alcProcessContext(alContext);
     }
     
+    checkErrors("ofOpenALSoundPlayer::update");
+                
     timeSet = false;
 }
 
