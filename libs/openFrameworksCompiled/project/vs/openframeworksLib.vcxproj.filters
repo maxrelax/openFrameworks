@@ -49,6 +49,18 @@
     <Filter Include="libs\openFrameworks\audiodecoder">
       <UniqueIdentifier>{6bb79496-73a5-427b-86f9-1b912e9ffb89}</UniqueIdentifier>
     </Filter>
+    <Filter Include="libs\openFrameworks\audiodecoder\include">
+      <UniqueIdentifier>{89303f05-be45-4371-83c1-8d67fed07dd9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\openFrameworks\audiodecoder\libs">
+      <UniqueIdentifier>{3b8cb48e-6f6f-427b-a770-14977406a4d4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\openFrameworks\audiodecoder\libs\src">
+      <UniqueIdentifier>{dc6269c2-ca8b-4428-b682-a818eea5b8a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\openFrameworks\audiodecoder\libs\include">
+      <UniqueIdentifier>{9c89a197-90d9-4a66-9c85-05adf07fbd90}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\openFrameworks\ofMain.h">
@@ -339,6 +351,18 @@
     <ClInclude Include="..\..\..\openFrameworks\sound\ofOpenALSoundPlayer.h">
       <Filter>libs\openFrameworks\sound</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\audiodecoder\include\ofxAudioDecoder.h">
+      <Filter>libs\openFrameworks\audiodecoder\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\audiodecoder\libs\audiodecoder\include\audiodecoder.h">
+      <Filter>libs\openFrameworks\audiodecoder\libs\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\audiodecoder\libs\audiodecoder\include\audiodecoderbase.h">
+      <Filter>libs\openFrameworks\audiodecoder\libs\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\audiodecoder\libs\audiodecoder\include\audiodecodermediafoundation.h">
+      <Filter>libs\openFrameworks\audiodecoder\libs\include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\openFrameworks\app\ofAppGlutWindow.cpp">
@@ -542,11 +566,11 @@
     <ClCompile Include="..\..\..\openFrameworks\sound\ofOpenALSoundPlayer.cpp">
       <Filter>libs\openFrameworks\sound</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\audiodecoder\libs\audiodecoder\src\audiodecodermediafoundation.cpp">
-      <Filter>libs\openFrameworks\audiodecoder</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\audiodecoder\libs\audiodecoder\src\audiodecoderbase.cpp">
-      <Filter>libs\openFrameworks\audiodecoder</Filter>
+      <Filter>libs\openFrameworks\audiodecoder\libs\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\audiodecoder\libs\audiodecoder\src\audiodecodermediafoundation.cpp">
+      <Filter>libs\openFrameworks\audiodecoder\libs\src</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

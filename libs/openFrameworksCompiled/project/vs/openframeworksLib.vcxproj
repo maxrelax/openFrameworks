@@ -136,6 +136,10 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\audiodecoder\include\ofxAudioDecoder.h" />
+    <ClInclude Include="..\..\..\audiodecoder\libs\audiodecoder\include\audiodecoder.h" />
+    <ClInclude Include="..\..\..\audiodecoder\libs\audiodecoder\include\audiodecoderbase.h" />
+    <ClInclude Include="..\..\..\audiodecoder\libs\audiodecoder\include\audiodecodermediafoundation.h" />
     <ClInclude Include="..\..\..\openFrameworks\3d\of3dPrimitives.h" />
     <ClInclude Include="..\..\..\openFrameworks\3d\of3dUtils.h" />
     <ClInclude Include="..\..\..\openFrameworks\3d\ofCamera.h" />
