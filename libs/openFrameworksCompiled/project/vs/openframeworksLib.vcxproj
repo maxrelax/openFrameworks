@@ -96,7 +96,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\..\openFrameworks;..\..\..\openFrameworks\graphics;..\..\..\openFrameworks\app;..\..\..\openFrameworks\sound;..\..\..\openFrameworks\utils;..\..\..\openFrameworks\communication;..\..\..\openFrameworks\video;..\..\..\openFrameworks\video\wmfpresenter;..\..\..\openFrameworks\video\wmfpresenter\common;..\..\..\openFrameworks\types;..\..\..\openFrameworks\math;..\..\..\openFrameworks\3d;..\..\..\openFrameworks\gl;..\..\..\openFrameworks\events;..\..\..\freeglut\include;..\..\..\rtAudio\include;..\..\..\freetype\include;..\..\..\freetype\include\freetype2;..\..\..\freeImage\include;..\..\..\fmodex\include;..\..\..\openal\include;..\..\..\sndfile\include;..\..\..\videoInput\include;..\..\..\kiss\include;..\..\..\kiss\src;..\..\..\glew\include;..\..\..\glu\include;..\..\..\tess2\include;..\..\..\poco\include;..\..\..\glfw\include;..\..\..\gl\include;..\..\..\openssl\include;..\..\..\audiodecoder\include;..\..\..\audiodecoder\libs;..\..\..\audiodecoder\libs\audiodecoder\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\openFrameworks;..\..\..\openFrameworks\graphics;..\..\..\openFrameworks\app;..\..\..\openFrameworks\sound;..\..\..\openFrameworks\utils;..\..\..\openFrameworks\communication;..\..\..\openFrameworks\video;..\..\..\openFrameworks\video\wmfpresenter;..\..\..\openFrameworks\video\wmfpresenter\common;..\..\..\openFrameworks\types;..\..\..\openFrameworks\math;..\..\..\openFrameworks\3d;..\..\..\openFrameworks\gl;..\..\..\openFrameworks\events;..\..\..\freeglut\include;..\..\..\rtAudio\include;..\..\..\freetype\include;..\..\..\freetype\include\freetype2;..\..\..\freeImage\include;..\..\..\openal\include;..\..\..\sndfile\include;..\..\..\videoInput\include;..\..\..\kiss\include;..\..\..\kiss\src;..\..\..\glew\include;..\..\..\glu\include;..\..\..\tess2\include;..\..\..\poco\include;..\..\..\glfw\include;..\..\..\gl\include;..\..\..\openssl\include;..\..\..\audiodecoder\include;..\..\..\audiodecoder\libs;..\..\..\audiodecoder\libs\audiodecoder\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;POCO_STATIC;CAIRO_WIN32_STATIC_BUILD;DISABLE_SOME_FLOATING_POINT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -124,7 +124,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>..\..\..\openFrameworks;..\..\..\openFrameworks\graphics;..\..\..\openFrameworks\app;..\..\..\openFrameworks\sound;..\..\..\openFrameworks\utils;..\..\..\openFrameworks\communication;..\..\..\openFrameworks\video;..\..\..\openFrameworks\video\wmfpresenter;..\..\..\openFrameworks\video\wmfpresenter\common;..\..\..\openFrameworks\types;..\..\..\openFrameworks\math;..\..\..\openFrameworks\3d;..\..\..\openFrameworks\gl;..\..\..\openFrameworks\events;..\..\..\freeglut\include;..\..\..\rtAudio\include;..\..\..\freetype\include;..\..\..\freetype\include\freetype2;..\..\..\freeImage\include;..\..\..\fmodex\include;..\..\..\openal\include;..\..\..\sndfile\include;..\..\..\videoInput\include;..\..\..\kiss\include;..\..\..\kiss\src;..\..\..\glew\include;..\..\..\glu\include;..\..\..\tess2\include;..\..\..\poco\include;..\..\..\glfw\include;..\..\..\gl\include;..\..\..\openssl\include;..\..\..\audiodecoder\include;..\..\..\audiodecoder\libs;..\..\..\audiodecoder\libs\audiodecoder\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\openFrameworks;..\..\..\openFrameworks\graphics;..\..\..\openFrameworks\app;..\..\..\openFrameworks\sound;..\..\..\openFrameworks\utils;..\..\..\openFrameworks\communication;..\..\..\openFrameworks\video;..\..\..\openFrameworks\video\wmfpresenter;..\..\..\openFrameworks\video\wmfpresenter\common;..\..\..\openFrameworks\types;..\..\..\openFrameworks\math;..\..\..\openFrameworks\3d;..\..\..\openFrameworks\gl;..\..\..\openFrameworks\events;..\..\..\freeglut\include;..\..\..\rtAudio\include;..\..\..\freetype\include;..\..\..\freetype\include\freetype2;..\..\..\freeImage\include;..\..\..\openal\include;..\..\..\sndfile\include;..\..\..\videoInput\include;..\..\..\kiss\include;..\..\..\kiss\src;..\..\..\glew\include;..\..\..\glu\include;..\..\..\tess2\include;..\..\..\poco\include;..\..\..\glfw\include;..\..\..\gl\include;..\..\..\openssl\include;..\..\..\audiodecoder\include;..\..\..\audiodecoder\libs;..\..\..\audiodecoder\libs\audiodecoder\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;POCO_STATIC;CAIRO_WIN32_STATIC_BUILD;DISABLE_SOME_FLOATING_POINT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <WarningLevel>Level1</WarningLevel>
@@ -184,7 +184,6 @@
     <ClInclude Include="..\..\..\openFrameworks\app\ofAppRunner.h" />
     <ClInclude Include="..\..\..\openFrameworks\sound\ofBaseSoundPlayer.h" />
     <ClInclude Include="..\..\..\openFrameworks\sound\ofBaseSoundStream.h" />
-    <ClInclude Include="..\..\..\openFrameworks\sound\ofFmodSoundPlayer.h" />
     <ClInclude Include="..\..\..\openFrameworks\sound\ofOpenALSoundPlayer.h" />
     <ClInclude Include="..\..\..\openFrameworks\sound\ofRtAudioSoundStream.h" />
     <ClInclude Include="..\..\..\openFrameworks\sound\ofSoundPlayer.h" />
@@ -240,6 +239,8 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\audiodecoder\libs\audiodecoder\src\audiodecoderbase.cpp" />
     <ClCompile Include="..\..\..\audiodecoder\libs\audiodecoder\src\audiodecodermediafoundation.cpp" />
+    <ClCompile Include="..\..\..\kiss\src\kiss_fft.c" />
+    <ClCompile Include="..\..\..\kiss\src\kiss_fftr.c" />
     <ClCompile Include="..\..\..\openFrameworks\3d\of3dPrimitives.cpp" />
     <ClCompile Include="..\..\..\openFrameworks\3d\of3dUtils.cpp" />
     <ClCompile Include="..\..\..\openFrameworks\3d\ofCamera.cpp" />
@@ -278,7 +279,6 @@
     <ClCompile Include="..\..\..\openFrameworks\math\ofQuaternion.cpp" />
     <ClCompile Include="..\..\..\openFrameworks\math\ofVec2f.cpp" />
     <ClCompile Include="..\..\..\openFrameworks\math\ofVec4f.cpp" />
-    <ClCompile Include="..\..\..\openFrameworks\sound\ofFmodSoundPlayer.cpp" />
     <ClCompile Include="..\..\..\openFrameworks\sound\ofOpenALSoundPlayer.cpp" />
     <ClCompile Include="..\..\..\openFrameworks\sound\ofRtAudioSoundStream.cpp" />
     <ClCompile Include="..\..\..\openFrameworks\sound\ofSoundPlayer.cpp" />

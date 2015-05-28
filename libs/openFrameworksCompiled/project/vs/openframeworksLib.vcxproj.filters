@@ -61,6 +61,12 @@
     <Filter Include="libs\openFrameworks\audiodecoder\libs\include">
       <UniqueIdentifier>{9c89a197-90d9-4a66-9c85-05adf07fbd90}</UniqueIdentifier>
     </Filter>
+    <Filter Include="libs\kiss">
+      <UniqueIdentifier>{256e1572-62e0-4239-9575-d8c64c0f91d3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\kiss\src">
+      <UniqueIdentifier>{7d7e3bca-1758-4548-83af-9057928e9887}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\openFrameworks\ofMain.h">
@@ -244,9 +250,6 @@
       <Filter>libs\openFrameworks\sound</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\openFrameworks\sound\ofBaseSoundStream.h">
-      <Filter>libs\openFrameworks\sound</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\openFrameworks\sound\ofFmodSoundPlayer.h">
       <Filter>libs\openFrameworks\sound</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\openFrameworks\types\ofParameter.h">
@@ -497,9 +500,6 @@
     <ClCompile Include="..\..\..\openFrameworks\utils\ofUtils.cpp">
       <Filter>libs\openFrameworks\utils</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\openFrameworks\sound\ofFmodSoundPlayer.cpp">
-      <Filter>libs\openFrameworks\sound</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\openFrameworks\sound\ofRtAudioSoundStream.cpp">
       <Filter>libs\openFrameworks\sound</Filter>
     </ClCompile>
@@ -571,6 +571,12 @@
     </ClCompile>
     <ClCompile Include="..\..\..\audiodecoder\libs\audiodecoder\src\audiodecodermediafoundation.cpp">
       <Filter>libs\openFrameworks\audiodecoder\libs\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\kiss\src\kiss_fft.c">
+      <Filter>libs\kiss\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\kiss\src\kiss_fftr.c">
+      <Filter>libs\kiss\src</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
