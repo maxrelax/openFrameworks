@@ -623,7 +623,7 @@ bool AudioDecoderMediaFoundation::configureAudioStream()
         MF_SOURCE_READER_FIRST_AUDIO_STREAM,
         true);
     if (FAILED(hr)) {
-        std::cerr << "SSMF: failed to select first audio stream (again)";
+        std::cerr << "SSMF: failed to select first audio stream (again)\n";
         return false;
     }
 
@@ -631,10 +631,10 @@ bool AudioDecoderMediaFoundation::configureAudioStream()
     // size_t and this function is writing a uint32. However, on 32-bit
     // Windows 7, size_t is defined as uint which is 32-bits, so we're safe
     // for all supported platforms -bkgood
-    UINT32 leftoverBufferSize = 0;
-    hr = m_pAudioType->GetUINT32(MF_MT_SAMPLE_SIZE, &leftoverBufferSize);
+    UINT64 leftoverBufferSize = 0;
+    hr = m_pAudioType->GetUINT64(MF_MT_SAMPLE_SIZE, &leftoverBufferSize);
     if (FAILED(hr)) {
-        std::cerr << "SSMF: failed to get buffer size";
+        std::cerr << "SSMF: failed to get buffer size\n";
 		leftoverBufferSize = 32;
        // return false;
     }
