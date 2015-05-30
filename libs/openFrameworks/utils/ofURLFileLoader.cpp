@@ -141,11 +141,15 @@ void ofURLFileLoader::threadedFunction() {
 					responses.push(response);
 					requests.pop_front();
 				}
-			}else{
+			}
+            else{
 				responses.push(response);
 		    	ofLogVerbose("ofURLFileLoader") << "threadedFunction(): failed getting request " << requests.front().name;
+                condition.wait(mutex);
+                break;
 			}
-		}else{
+		}
+        else{
 			ofLogVerbose("ofURLFileLoader") << "threadedFunction(): stopping on no requests condition";
 			condition.wait(mutex);
 		}
