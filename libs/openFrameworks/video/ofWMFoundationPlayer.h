@@ -38,7 +38,8 @@ private:
 	ofPixels _pixels;
 
 	BOOL InitInstance();
-	
+	void UninitInstance();
+
 	void OnPlayerEvent(HWND hwnd, WPARAM pUnkPtr);
 
 	bool endLoad();

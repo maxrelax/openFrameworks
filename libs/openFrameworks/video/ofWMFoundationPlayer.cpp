@@ -6,7 +6,7 @@
 #include "ofWMFoundationPlayer.h"
 
 typedef std::pair<HWND,ofWMFoundationPlayer*> PlayerItem;
-list<PlayerItem> g_WMFVideoPlayers;
+vector<PlayerItem> g_WMFVideoPlayers;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 // Message handlers
@@ -68,6 +68,7 @@ ofWMFoundationPlayer::~ofWMFoundationPlayer()
     }
 
 	ofLogVerbose("ofWMFoundationPlayer::~ofWMFoundationPlayer") << "Player " << _id << " terminated";
+	this->UninitInstance();
 
 	_instanceCount--;
 	if (_instanceCount == 0) {
@@ -584,4 +585,11 @@ BOOL ofWMFoundationPlayer::InitInstance()
 	UpdateWindow(hwnd);
 
 	return TRUE;
+}
+void ofWMFoundationPlayer::UninitInstance(){
+	for(int i = g_WMFVideoPlayers.size()-1; i >= 0; i--){	
+		if(g_WMFVideoPlayers[i].second == this){
+			g_WMFVideoPlayers.erase(g_WMFVideoPlayers.begin()+i);
+		}
+	}
 }
