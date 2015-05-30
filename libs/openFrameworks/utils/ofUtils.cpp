@@ -674,7 +674,7 @@ void ofLaunchBrowser(string _url, bool uriEncodeQuery){
 	// make sure it is a properly formatted url:
 	//   some platforms, like Android, require urls to start with lower-case http/https
     //   Poco::URI automatically converts the scheme to lower case
-	if(uri.getScheme() != "http" && uri.getScheme() != "https"){
+	if(uri.getScheme() != "http" && uri.getScheme() != "https" && uri.getScheme() != "mailto"){
 		ofLogError("ofUtils") << "ofLaunchBrowser(): url does not begin with http:// or https://: \"" << uri.toString() << "\"";
 		return;
 	}
