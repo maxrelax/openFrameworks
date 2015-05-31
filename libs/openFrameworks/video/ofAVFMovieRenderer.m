@@ -371,8 +371,8 @@ int count = 0;
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
     if ([keyPath isEqualToString:@"status"]) {
-        NSLog(@"Status changed.");
-        NSLog(@"%@", change);
+//        NSLog(@"Status changed.");
+//        NSLog(@"%@", change);
     }
 }
 
