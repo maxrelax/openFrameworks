@@ -1329,7 +1329,10 @@ HRESULT CPlayer::SetMediaInfo( IMFPresentationDescriptor *pPD )
 					m_width = w;
 					m_height =h;
 				}
-
+				else{
+					ofLogError("CPlayer::SetMediaInfo") << "Failed to get video framesize " << HRESULT_CODE(hr);
+					return hr;
+				}
 				goto done;
 			}
 		}
