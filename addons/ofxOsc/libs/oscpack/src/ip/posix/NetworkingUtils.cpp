@@ -36,9 +36,20 @@
 */
 #include "ip/NetworkingUtils.h"
 
+#ifdef _WIN32
+
+#include <winsock2.h>
+#include <windows.h>
+
+#else
+// unix includes here
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+
+#endif
+
+
 
 #include <cstring>
 
