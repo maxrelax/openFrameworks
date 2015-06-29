@@ -38,26 +38,22 @@ extern "C" {
  * Doxygen documentation
  *************************************************************************/
 
-/*! @defgroup context Context handling
- *
- *  This is the reference documentation for context related functions.  For more
- *  information, see the @ref context.
+/*! @defgroup clipboard Clipboard support
  */
-/*! @defgroup init Initialization, version and errors
- *
- *  This is the reference documentation for initialization and termination of
- *  the library, version management and error handling.  For more information,
- *  see the @ref intro.
+/*! @defgroup context Context handling
+ */
+/*! @defgroup error Error handling
+ */
+/*! @defgroup init Initialization and version information
  */
 /*! @defgroup input Input handling
- *
- *  This is the reference documentation for input related functions and types.
- *  For more information, see the @ref input.
  */
 /*! @defgroup monitor Monitor handling
  *
  *  This is the reference documentation for monitor related functions and types.
  *  For more information, see the @ref monitor.
+ */
+/*! @defgroup time Time input
  */
 /*! @defgroup window Window handling
  *
@@ -68,17 +64,28 @@ extern "C" {
 
 
 /*************************************************************************
- * Compiler- and platform-specific preprocessor work
+ * Global definitions
  *************************************************************************/
 
-/* If we are we on Windows, we want a single define for it.
+/* ------------------- BEGIN SYSTEM/COMPILER SPECIFIC -------------------- */
+
+/* Please report any problems that you find with your compiler, which may
+ * be solved in this section! There are several compilers that I have not
+ * been able to test this file with yet.
+ *
+ * First: If we are we on Windows, we want a single define for it (_WIN32)
+ * (Note: For Cygwin the compiler flag -mwin32 should be used, but to
+ * make sure that things run smoothly for Cygwin users, we add __CYGWIN__
+ * to the list of "valid Win32 identifiers", which removes the need for
+ * -mwin32)
  */
-#if !defined(_WIN32) && (defined(__WIN32__) || defined(WIN32) || defined(__MINGW32__))
+#if !defined(_WIN32) && (defined(__WIN32__) || defined(WIN32) || defined(__CYGWIN__))
  #define _WIN32
 #endif /* _WIN32 */
 
-/* It is customary to use APIENTRY for OpenGL function pointer declarations on
- * all platforms.  Additionally, the Windows OpenGL header needs APIENTRY.
+/* In order for extension support to be portable, we need to define an
+ * OpenGL function call method. We use the keyword APIENTRY, which is
+ * defined for Win32. (Note: Windows also needs this for <GL/gl.h>)
  */
 #ifndef APIENTRY
  #ifdef _WIN32
@@ -88,23 +95,44 @@ extern "C" {
  #endif
 #endif /* APIENTRY */
 
-/* Some Windows OpenGL headers need this.
+/* The following three defines are here solely to make some Windows-based
+ * <GL/gl.h> files happy. Theoretically we could include <windows.h>, but
+ * it has the major drawback of severely polluting our namespace.
  */
+
+/* Under Windows, we need WINGDIAPI defined */
 #if !defined(WINGDIAPI) && defined(_WIN32)
- #define WINGDIAPI __declspec(dllimport)
+ #if defined(_MSC_VER) || defined(__BORLANDC__) || defined(__POCC__)
+  /* Microsoft Visual C++, Borland C++ Builder and Pelles C */
+  #define WINGDIAPI __declspec(dllimport)
+ #elif defined(__LCC__)
+  /* LCC-Win32 */
+  #define WINGDIAPI __stdcall
+ #else
+  /* Others (e.g. MinGW, Cygwin) */
+  #define WINGDIAPI extern
+ #endif
  #define GLFW_WINGDIAPI_DEFINED
 #endif /* WINGDIAPI */
 
-/* Some Windows GLU headers need this.
- */
+/* Some <GL/glu.h> files also need CALLBACK defined */
 #if !defined(CALLBACK) && defined(_WIN32)
- #define CALLBACK __stdcall
+ #if defined(_MSC_VER)
+  /* Microsoft Visual C++ */
+  #if (defined(_M_MRX000) || defined(_M_IX86) || defined(_M_ALPHA) || defined(_M_PPC)) && !defined(MIDL_PASS)
+   #define CALLBACK __stdcall
+  #else
+   #define CALLBACK
+  #endif
+ #else
+  /* Other Windows compilers */
+  #define CALLBACK __stdcall
+ #endif
  #define GLFW_CALLBACK_DEFINED
 #endif /* CALLBACK */
 
-/* Most Windows GLU headers need wchar_t.
- * The OS X OpenGL header blocks the definition of ptrdiff_t by glext.h.
- */
+/* Most GL/glu.h variants on Windows need wchar_t
+ * OpenGL/gl.h blocks the definition of ptrdiff_t by glext.h on OS X */
 #if !defined(GLFW_INCLUDE_NONE)
  #include <stddef.h>
 #endif
@@ -112,78 +140,68 @@ extern "C" {
 /* Include the chosen client API headers.
  */
 #if defined(__APPLE_CC__)
- #if defined(GLFW_INCLUDE_GLCOREARB)
-  #include <OpenGL/gl3.h>
-  #if defined(GLFW_INCLUDE_GLEXT)
-   #include <OpenGL/gl3ext.h>
+  #if defined(GLFW_INCLUDE_GLCOREARB)
+    #include <OpenGL/gl3.h>
+  #elif !defined(GLFW_INCLUDE_NONE)
+    #define GL_GLEXT_LEGACY
+    #include <OpenGL/gl.h>
   #endif
- #elif !defined(GLFW_INCLUDE_NONE)
-  #if !defined(GLFW_INCLUDE_GLEXT)
-   #define GL_GLEXT_LEGACY
+  #if defined(GLFW_INCLUDE_GLU)
+    #include <OpenGL/glu.h>
   #endif
-  #include <OpenGL/gl.h>
- #endif
- #if defined(GLFW_INCLUDE_GLU)
-  #include <OpenGL/glu.h>
- #endif
 #else
- #if defined(GLFW_INCLUDE_GLCOREARB)
-  #include <GL/glcorearb.h>
- #elif defined(GLFW_INCLUDE_ES1)
-  #include <GLES/gl.h>
-  #if defined(GLFW_INCLUDE_GLEXT)
-   #include <GLES/glext.h>
+  #if defined(GLFW_INCLUDE_GLCOREARB)
+    #include <GL/glcorearb.h>
+  #elif defined(GLFW_INCLUDE_ES1)
+    #include <GLES/gl.h>
+  #elif defined(GLFW_INCLUDE_ES2)
+    #include <GLES2/gl2.h>
+  #elif defined(GLFW_INCLUDE_ES3)
+    #include <GLES3/gl3.h>
+  #elif defined(GLFW_INCLUDE_ES31)
+    #include <GLES3/gl31.h>
+  #elif !defined(GLFW_INCLUDE_NONE)
+    #include <GL/gl.h>
   #endif
- #elif defined(GLFW_INCLUDE_ES2)
-  #include <GLES2/gl2.h>
-  #if defined(GLFW_INCLUDE_GLEXT)
-   #include <GLES2/gl2ext.h>
+  #if defined(GLFW_INCLUDE_GLU)
+    #include <GL/glu.h>
   #endif
- #elif defined(GLFW_INCLUDE_ES3)
-  #include <GLES3/gl3.h>
-  #if defined(GLFW_INCLUDE_GLEXT)
-   #include <GLES3/gl2ext.h>
-  #endif
- #elif defined(GLFW_INCLUDE_ES31)
-  #include <GLES3/gl31.h>
-  #if defined(GLFW_INCLUDE_GLEXT)
-   #include <GLES3/gl2ext.h>
-  #endif
- #elif !defined(GLFW_INCLUDE_NONE)
-  #include <GL/gl.h>
-  #if defined(GLFW_INCLUDE_GLEXT)
-   #include <GL/glext.h>
-  #endif
- #endif
- #if defined(GLFW_INCLUDE_GLU)
-  #include <GL/glu.h>
- #endif
 #endif
 
 #if defined(GLFW_DLL) && defined(_GLFW_BUILD_DLL)
- /* GLFW_DLL must be defined by applications that are linking against the DLL
-  * version of the GLFW library.  _GLFW_BUILD_DLL is defined by the GLFW
-  * configuration header when compiling the DLL version of the library.
+ /* GLFW_DLL is defined by users of GLFW when compiling programs that will link
+  * to the DLL version of the GLFW library.  _GLFW_BUILD_DLL is defined by the
+  * GLFW configuration header when compiling the DLL version of the library.
   */
- #error "You may not have both GLFW_DLL and _GLFW_BUILD_DLL defined"
+ #error "You must not have both GLFW_DLL and _GLFW_BUILD_DLL defined"
 #endif
 
-/* GLFWAPI is used to declare public API functions for export
- * from the DLL / shared library / dynamic library.
- */
 #if defined(_WIN32) && defined(_GLFW_BUILD_DLL)
- /* We are building GLFW as a Win32 DLL */
+
+ /* We are building a Win32 DLL */
  #define GLFWAPI __declspec(dllexport)
+
 #elif defined(_WIN32) && defined(GLFW_DLL)
- /* We are calling GLFW as a Win32 DLL */
- #define GLFWAPI __declspec(dllimport)
+
+ /* We are calling a Win32 DLL */
+ #if defined(__LCC__)
+  #define GLFWAPI extern
+ #else
+  #define GLFWAPI __declspec(dllimport)
+ #endif
+
 #elif defined(__GNUC__) && defined(_GLFW_BUILD_DLL)
- /* We are building GLFW as a shared / dynamic library */
+
  #define GLFWAPI __attribute__((visibility("default")))
+
 #else
- /* We are building or calling GLFW as a static library */
+
+ /* We are either building/calling a static lib or we are non-win32 */
  #define GLFWAPI
+
 #endif
+
+/* -------------------- END SYSTEM/COMPILER SPECIFIC --------------------- */
 
 
 /*************************************************************************
@@ -211,29 +229,20 @@ extern "C" {
  *  API changes.
  *  @ingroup init
  */
-#define GLFW_VERSION_REVISION       1
+#define GLFW_VERSION_REVISION       0
 /*! @} */
 
 /*! @name Key and button actions
  *  @{ */
-/*! @brief The key or mouse button was released.
- *
- *  The key or mouse button was released.
- *
+/*! @brief The key or button was released.
  *  @ingroup input
  */
 #define GLFW_RELEASE                0
-/*! @brief The key or mouse button was pressed.
- *
- *  The key or mouse button was pressed.
- *
+/*! @brief The key or button was pressed.
  *  @ingroup input
  */
 #define GLFW_PRESS                  1
 /*! @brief The key was held down until it repeated.
- *
- *  The key was held down until it repeated.
- *
  *  @ingroup input
  */
 #define GLFW_REPEAT                 2
@@ -241,22 +250,20 @@ extern "C" {
 
 /*! @defgroup keys Keyboard keys
  *
- *  See [key input](@ref input_key) for how these are used.
+ * These key codes are inspired by the *USB HID Usage Tables v1.12* (p. 53-60),
+ * but re-arranged to map to 7-bit ASCII for printable keys (function keys are
+ * put in the 256+ range).
  *
- *  These key codes are inspired by the _USB HID Usage Tables v1.12_ (p. 53-60),
- *  but re-arranged to map to 7-bit ASCII for printable keys (function keys are
- *  put in the 256+ range).
- *
- *  The naming of the key codes follow these rules:
- *   - The US keyboard layout is used
- *   - Names of printable alpha-numeric characters are used (e.g. "A", "R",
- *     "3", etc.)
- *   - For non-alphanumeric characters, Unicode:ish names are used (e.g.
- *     "COMMA", "LEFT_SQUARE_BRACKET", etc.). Note that some names do not
- *     correspond to the Unicode standard (usually for brevity)
- *   - Keys that lack a clear US mapping are named "WORLD_x"
- *   - For non-printable keys, custom names are used (e.g. "F4",
- *     "BACKSPACE", etc.)
+ * The naming of the key codes follow these rules:
+ *  - The US keyboard layout is used
+ *  - Names of printable alpha-numeric characters are used (e.g. "A", "R",
+ *    "3", etc.)
+ *  - For non-alphanumeric characters, Unicode:ish names are used (e.g.
+ *    "COMMA", "LEFT_SQUARE_BRACKET", etc.). Note that some names do not
+ *    correspond to the Unicode standard (usually for brevity)
+ *  - Keys that lack a clear US mapping are named "WORLD_x"
+ *  - For non-printable keys, custom names are used (e.g. "F4",
+ *    "BACKSPACE", etc.)
  *
  *  @ingroup input
  *  @{
@@ -393,9 +400,6 @@ extern "C" {
 /*! @} */
 
 /*! @defgroup mods Modifier key flags
- *
- *  See [key input](@ref input_key) for how these are used.
- *
  *  @ingroup input
  *  @{ */
 
@@ -415,9 +419,6 @@ extern "C" {
 /*! @} */
 
 /*! @defgroup buttons Mouse buttons
- *
- *  See [mouse button input](@ref input_mouse_button) for how these are used.
- *
  *  @ingroup input
  *  @{ */
 #define GLFW_MOUSE_BUTTON_1         0
@@ -435,9 +436,6 @@ extern "C" {
 /*! @} */
 
 /*! @defgroup joysticks Joysticks
- *
- *  See [joystick input](@ref joystick) for how these are used.
- *
  *  @ingroup input
  *  @{ */
 #define GLFW_JOYSTICK_1             0
@@ -460,131 +458,36 @@ extern "C" {
 /*! @} */
 
 /*! @defgroup errors Error codes
- *
- *  See [error handling](@ref error_handling) for how these are used.
- *
- *  @ingroup init
+ *  @ingroup error
  *  @{ */
 /*! @brief GLFW has not been initialized.
- *
- *  This occurs if a GLFW function was called that may not be called unless the
- *  library is [initialized](@ref intro_init).
- *
- *  @par Analysis
- *  Application programmer error.  Initialize GLFW before calling any function
- *  that requires initialization.
  */
 #define GLFW_NOT_INITIALIZED        0x00010001
 /*! @brief No context is current for this thread.
- *
- *  This occurs if a GLFW function was called that needs and operates on the
- *  current OpenGL or OpenGL ES context but no context is current on the calling
- *  thread.  One such function is @ref glfwSwapInterval.
- *
- *  @par Analysis
- *  Application programmer error.  Ensure a context is current before calling
- *  functions that require a current context.
  */
 #define GLFW_NO_CURRENT_CONTEXT     0x00010002
-/*! @brief One of the arguments to the function was an invalid enum value.
- *
- *  One of the arguments to the function was an invalid enum value, for example
- *  requesting [GLFW_RED_BITS](@ref window_hints_fb) with @ref
- *  glfwGetWindowAttrib.
- *
- *  @par Analysis
- *  Application programmer error.  Fix the offending call.
+/*! @brief One of the enum parameters for the function was given an invalid
+ *  enum.
  */
 #define GLFW_INVALID_ENUM           0x00010003
-/*! @brief One of the arguments to the function was an invalid value.
- *
- *  One of the arguments to the function was an invalid value, for example
- *  requesting a non-existent OpenGL or OpenGL ES version like 2.7.
- *
- *  Requesting a valid but unavailable OpenGL or OpenGL ES version will instead
- *  result in a @ref GLFW_VERSION_UNAVAILABLE error.
- *
- *  @par Analysis
- *  Application programmer error.  Fix the offending call.
+/*! @brief One of the parameters for the function was given an invalid value.
  */
 #define GLFW_INVALID_VALUE          0x00010004
 /*! @brief A memory allocation failed.
- *
- *  A memory allocation failed.
- *
- *  @par Analysis
- *  A bug in GLFW or the underlying operating system.  Report the bug to our
- *  [issue tracker](https://github.com/glfw/glfw/issues).
  */
 #define GLFW_OUT_OF_MEMORY          0x00010005
 /*! @brief GLFW could not find support for the requested client API on the
  *  system.
- *
- *  GLFW could not find support for the requested client API on the system.  If
- *  emitted by functions other than @ref glfwCreateWindow, no supported client
- *  API was found.
- *
- *  @par Analysis
- *  The installed graphics driver does not support the requested client API, or
- *  does not support it via the chosen context creation backend.  Below are
- *  a few examples.
- *
- *  @par
- *  Some pre-installed Windows graphics drivers do not support OpenGL.  AMD only
- *  supports OpenGL ES via EGL, while Nvidia and Intel only supports it via
- *  a WGL or GLX extension.  OS X does not provide OpenGL ES at all.  The Mesa
- *  EGL, OpenGL and OpenGL ES libraries do not interface with the Nvidia binary
- *  driver.
  */
 #define GLFW_API_UNAVAILABLE        0x00010006
-/*! @brief The requested OpenGL or OpenGL ES version is not available.
- *
- *  The requested OpenGL or OpenGL ES version (including any requested context
- *  or framebuffer hints) is not available on this machine.
- *
- *  @par Analysis
- *  The machine does not support your requirements.  If your application is
- *  sufficiently flexible, downgrade your requirements and try again.
- *  Otherwise, inform the user that their machine does not match your
- *  requirements.
- *
- *  @par
- *  Future invalid OpenGL and OpenGL ES versions, for example OpenGL 4.8 if 5.0
- *  comes out before the 4.x series gets that far, also fail with this error and
- *  not @ref GLFW_INVALID_VALUE, because GLFW cannot know what future versions
- *  will exist.
+/*! @brief The requested client API version is not available.
  */
 #define GLFW_VERSION_UNAVAILABLE    0x00010007
 /*! @brief A platform-specific error occurred that does not match any of the
  *  more specific categories.
- *
- *  A platform-specific error occurred that does not match any of the more
- *  specific categories.
- *
- *  @par Analysis
- *  A bug or configuration error in GLFW, the underlying operating system or
- *  its drivers, or a lack of required resources.  Report the issue to our
- *  [issue tracker](https://github.com/glfw/glfw/issues).
  */
 #define GLFW_PLATFORM_ERROR         0x00010008
-/*! @brief The requested format is not supported or available.
- *
- *  If emitted during window creation, the requested pixel format is not
- *  supported.
- *
- *  If emitted when querying the clipboard, the contents of the clipboard could
- *  not be converted to the requested format.
- *
- *  @par Analysis
- *  If emitted during window creation, one or more
- *  [hard constraints](@ref window_hints_hard) did not match any of the
- *  available pixel formats.  If your application is sufficiently flexible,
- *  downgrade your requirements and try again.  Otherwise, inform the user that
- *  their machine does not match your requirements.
- *
- *  @par
- *  If emitted when querying the clipboard, ignore the error or report it to
- *  the user, as appropriate.
+/*! @brief The clipboard did not contain data in the requested format.
  */
 #define GLFW_FORMAT_UNAVAILABLE     0x00010009
 /*! @} */
@@ -594,8 +497,6 @@ extern "C" {
 #define GLFW_RESIZABLE              0x00020003
 #define GLFW_VISIBLE                0x00020004
 #define GLFW_DECORATED              0x00020005
-#define GLFW_AUTO_ICONIFY           0x00020006
-#define GLFW_FLOATING               0x00020007
 
 #define GLFW_RED_BITS               0x00021001
 #define GLFW_GREEN_BITS             0x00021002
@@ -612,7 +513,6 @@ extern "C" {
 #define GLFW_SAMPLES                0x0002100D
 #define GLFW_SRGB_CAPABLE           0x0002100E
 #define GLFW_REFRESH_RATE           0x0002100F
-#define GLFW_DOUBLEBUFFER           0x00021010
 
 #define GLFW_CLIENT_API             0x00022001
 #define GLFW_CONTEXT_VERSION_MAJOR  0x00022002
@@ -622,7 +522,6 @@ extern "C" {
 #define GLFW_OPENGL_FORWARD_COMPAT  0x00022006
 #define GLFW_OPENGL_DEBUG_CONTEXT   0x00022007
 #define GLFW_OPENGL_PROFILE         0x00022008
-#define GLFW_CONTEXT_RELEASE_BEHAVIOR 0x00022009
 
 #define GLFW_OPENGL_API             0x00030001
 #define GLFW_OPENGL_ES_API          0x00030002
@@ -643,53 +542,8 @@ extern "C" {
 #define GLFW_CURSOR_HIDDEN          0x00034002
 #define GLFW_CURSOR_DISABLED        0x00034003
 
-#define GLFW_ANY_RELEASE_BEHAVIOR            0
-#define GLFW_RELEASE_BEHAVIOR_FLUSH 0x00035001
-#define GLFW_RELEASE_BEHAVIOR_NONE  0x00035002
-
-/*! @defgroup shapes Standard cursor shapes
- *
- *  See [standard cursor creation](@ref cursor_standard) for how these are used.
- *
- *  @ingroup input
- *  @{ */
-
-/*! @brief The regular arrow cursor shape.
- *
- *  The regular arrow cursor.
- */
-#define GLFW_ARROW_CURSOR           0x00036001
-/*! @brief The text input I-beam cursor shape.
- *
- *  The text input I-beam cursor shape.
- */
-#define GLFW_IBEAM_CURSOR           0x00036002
-/*! @brief The crosshair shape.
- *
- *  The crosshair shape.
- */
-#define GLFW_CROSSHAIR_CURSOR       0x00036003
-/*! @brief The hand shape.
- *
- *  The hand shape.
- */
-#define GLFW_HAND_CURSOR            0x00036004
-/*! @brief The horizontal resize arrow shape.
- *
- *  The horizontal resize arrow shape.
- */
-#define GLFW_HRESIZE_CURSOR         0x00036005
-/*! @brief The vertical resize arrow shape.
- *
- *  The vertical resize arrow shape.
- */
-#define GLFW_VRESIZE_CURSOR         0x00036006
-/*! @} */
-
 #define GLFW_CONNECTED              0x00040001
 #define GLFW_DISCONNECTED           0x00040002
-
-#define GLFW_DONT_CARE              -1
 
 
 /*************************************************************************
@@ -738,7 +592,7 @@ typedef struct GLFWcursor GLFWcursor;
  *
  *  @sa glfwSetErrorCallback
  *
- *  @ingroup init
+ *  @ingroup error
  */
 typedef void (* GLFWerrorfun)(int,const char*);
 
@@ -746,7 +600,7 @@ typedef void (* GLFWerrorfun)(int,const char*);
  *
  *  This is the function signature for window position callback functions.
  *
- *  @param[in] window The window that was moved.
+ *  @param[in] window The window that the user moved.
  *  @param[in] xpos The new x-coordinate, in screen coordinates, of the
  *  upper-left corner of the client area of the window.
  *  @param[in] ypos The new y-coordinate, in screen coordinates, of the
@@ -762,7 +616,7 @@ typedef void (* GLFWwindowposfun)(GLFWwindow*,int,int);
  *
  *  This is the function signature for window size callback functions.
  *
- *  @param[in] window The window that was resized.
+ *  @param[in] window The window that the user resized.
  *  @param[in] width The new width, in screen coordinates, of the window.
  *  @param[in] height The new height, in screen coordinates, of the window.
  *
@@ -800,9 +654,9 @@ typedef void (* GLFWwindowrefreshfun)(GLFWwindow*);
  *
  *  This is the function signature for window focus callback functions.
  *
- *  @param[in] window The window that gained or lost input focus.
- *  @param[in] focused `GL_TRUE` if the window was given input focus, or
- *  `GL_FALSE` if it lost it.
+ *  @param[in] window The window that was focused or defocused.
+ *  @param[in] focused `GL_TRUE` if the window was focused, or `GL_FALSE` if
+ *  it was defocused.
  *
  *  @sa glfwSetWindowFocusCallback
  *
@@ -906,7 +760,7 @@ typedef void (* GLFWscrollfun)(GLFWwindow*,double,double);
  *  @param[in] window The window that received the event.
  *  @param[in] key The [keyboard key](@ref keys) that was pressed or released.
  *  @param[in] scancode The system-specific scancode of the key.
- *  @param[in] action `GLFW_PRESS`, `GLFW_RELEASE` or `GLFW_REPEAT`.
+ *  @param[in] action @ref GLFW_PRESS, @ref GLFW_RELEASE or @ref GLFW_REPEAT.
  *  @param[in] mods Bit field describing which [modifier keys](@ref mods) were
  *  held down.
  *
@@ -929,23 +783,6 @@ typedef void (* GLFWkeyfun)(GLFWwindow*,int,int,int,int);
  */
 typedef void (* GLFWcharfun)(GLFWwindow*,unsigned int);
 
-/*! @brief The function signature for Unicode character with modifiers
- *  callbacks.
- *
- *  This is the function signature for Unicode character with modifiers callback
- *  functions.  It is called for each input character, regardless of what
- *  modifier keys are held down.
- *
- *  @param[in] window The window that received the event.
- *  @param[in] codepoint The Unicode code point of the character.
- *  @param[in] mods Bit field describing which [modifier keys](@ref mods) were
- *  held down.
- *
- *  @sa glfwSetCharModsCallback
- *
- *  @ingroup input
- */
-typedef void (* GLFWcharmodsfun)(GLFWwindow*,unsigned int,int);
 
 /*! @brief The function signature for file drop callbacks.
  *
@@ -953,7 +790,7 @@ typedef void (* GLFWcharmodsfun)(GLFWwindow*,unsigned int,int);
  *
  *  @param[in] window The window that received the event.
  *  @param[in] count The number of dropped files.
- *  @param[in] paths The UTF-8 encoded file and/or directory path names.
+ *  @param[in] names The UTF-8 encoded path names of the dropped files.
  *
  *  @sa glfwSetDropCallback
  *
@@ -1027,6 +864,8 @@ typedef struct GLFWgammaramp
 } GLFWgammaramp;
 
 /*! @brief Image data.
+ *
+ *  @ingroup window
  */
 typedef struct GLFWimage
 {
@@ -1049,37 +888,28 @@ typedef struct GLFWimage
 /*! @brief Initializes the GLFW library.
  *
  *  This function initializes the GLFW library.  Before most GLFW functions can
- *  be used, GLFW must be initialized, and before an application terminates GLFW
+ *  be used, GLFW must be initialized, and before a program terminates GLFW
  *  should be terminated in order to free any resources allocated during or
  *  after initialization.
  *
  *  If this function fails, it calls @ref glfwTerminate before returning.  If it
- *  succeeds, you should call @ref glfwTerminate before the application exits.
+ *  succeeds, you should call @ref glfwTerminate before the program exits.
  *
  *  Additional calls to this function after successful initialization but before
- *  termination will return `GL_TRUE` immediately.
+ *  termination will succeed but will do nothing.
  *
- *  @return `GL_TRUE` if successful, or `GL_FALSE` if an
- *  [error](@ref error_handling) occurred.
+ *  @return `GL_TRUE` if successful, or `GL_FALSE` if an error occurred.
  *
- *  @remarks __OS X:__ This function will change the current directory of the
+ *  @par New in GLFW 3
+ *  This function no longer registers @ref glfwTerminate with `atexit`.
+ *
+ *  @note This function may only be called from the main thread.
+ *
+ *  @note **OS X:** This function will change the current directory of the
  *  application to the `Contents/Resources` subdirectory of the application's
- *  bundle, if present.  This can be disabled with a
- *  [compile-time option](@ref compile_options_osx).
+ *  bundle, if present.
  *
- *  @remarks __X11:__ If the `LC_CTYPE` category of the current locale is set to
- *  `"C"` then the environment's locale will be applied to that category.  This
- *  is done because character input will not function when `LC_CTYPE` is set to
- *  `"C"`.  If another locale was set before this function was called, it will
- *  be left untouched.
- *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref intro_init
  *  @sa glfwTerminate
- *
- *  @since Added in GLFW 1.0.
  *
  *  @ingroup init
  */
@@ -1087,31 +917,23 @@ GLFWAPI int glfwInit(void);
 
 /*! @brief Terminates the GLFW library.
  *
- *  This function destroys all remaining windows and cursors, restores any
- *  modified gamma ramps and frees any other allocated resources.  Once this
- *  function is called, you must again call @ref glfwInit successfully before
- *  you will be able to use most GLFW functions.
+ *  This function destroys all remaining windows, frees any allocated resources
+ *  and sets the library to an uninitialized state.  Once this is called, you
+ *  must again call @ref glfwInit successfully before you will be able to use
+ *  most GLFW functions.
  *
  *  If GLFW has been successfully initialized, this function should be called
- *  before the application exits.  If initialization fails, there is no need to
- *  call this function, as it is called by @ref glfwInit before it returns
- *  failure.
+ *  before the program exits.  If initialization fails, there is no need to call
+ *  this function, as it is called by @ref glfwInit before it returns failure.
  *
  *  @remarks This function may be called before @ref glfwInit.
+ *
+ *  @note This function may only be called from the main thread.
  *
  *  @warning No window's context may be current on another thread when this
  *  function is called.
  *
- *  @par Reentrancy
- *  This function may not be called from a callback.
- *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref intro_init
  *  @sa glfwInit
- *
- *  @since Added in GLFW 1.0.
  *
  *  @ingroup init
  */
@@ -1123,22 +945,15 @@ GLFWAPI void glfwTerminate(void);
  *  library.  It is intended for when you are using GLFW as a shared library and
  *  want to ensure that you are using the minimum required version.
  *
- *  Any or all of the version arguments may be `NULL`.  This function always
- *  succeeds.
- *
  *  @param[out] major Where to store the major version number, or `NULL`.
  *  @param[out] minor Where to store the minor version number, or `NULL`.
  *  @param[out] rev Where to store the revision number, or `NULL`.
  *
  *  @remarks This function may be called before @ref glfwInit.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.
+ *  @remarks This function may be called from any thread.
  *
- *  @sa @ref intro_version
  *  @sa glfwGetVersionString
- *
- *  @since Added in GLFW 1.0.
  *
  *  @ingroup init
  */
@@ -1146,31 +961,29 @@ GLFWAPI void glfwGetVersion(int* major, int* minor, int* rev);
 
 /*! @brief Returns a string describing the compile-time configuration.
  *
- *  This function returns the compile-time generated
- *  [version string](@ref intro_version_string) of the GLFW library binary.  It
- *  describes the version, platform, compiler and any platform-specific
- *  compile-time options.
+ *  This function returns a static string generated at compile-time according to
+ *  which configuration macros were defined.  This is intended for use when
+ *  submitting bug reports, to allow developers to see which code paths are
+ *  enabled in a binary.
  *
- *  __Do not use the version string__ to parse the GLFW library version.  The
- *  @ref glfwGetVersion function already provides the version of the running
- *  library binary.
+ *  The format of the string is as follows:
+ *  - The version of GLFW
+ *  - The name of the window system API
+ *  - The name of the context creation API
+ *  - Any additional options or APIs
  *
- *  This function always succeeds.
+ *  For example, when compiling GLFW 3.0 with MinGW using the Win32 and WGL
+ *  back ends, the version string may look something like this:
+ *
+ *      3.0.0 Win32 WGL MinGW
  *
  *  @return The GLFW version string.
  *
  *  @remarks This function may be called before @ref glfwInit.
  *
- *  @par Pointer Lifetime
- *  The returned string is static and compile-time generated.
+ *  @remarks This function may be called from any thread.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.
- *
- *  @sa @ref intro_version
  *  @sa glfwGetVersion
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup init
  */
@@ -1181,31 +994,25 @@ GLFWAPI const char* glfwGetVersionString(void);
  *  This function sets the error callback, which is called with an error code
  *  and a human-readable description each time a GLFW error occurs.
  *
- *  The error callback is called on the thread where the error occurred.  If you
- *  are using GLFW from multiple threads, your error callback needs to be
- *  written accordingly.
- *
- *  Because the description string may have been generated specifically for that
- *  error, it is not guaranteed to be valid after the callback has returned.  If
- *  you wish to use it after the callback returns, you need to make a copy.
- *
- *  Once set, the error callback remains set even after the library has been
- *  terminated.
- *
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set.
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
  *  @remarks This function may be called before @ref glfwInit.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref error_handling
+ *  @note The error callback is called by the thread where the error occurred.
+ *  If you are using GLFW from multiple threads, your error callback needs to be
+ *  written accordingly.
  *
- *  @since Added in GLFW 3.0.
+ *  @note Because the description string provided to the callback may have been
+ *  generated specifically for that error, it is not guaranteed to be valid
+ *  after the callback has returned.  If you wish to use it after that, you need
+ *  to make your own copy of it before returning.
  *
- *  @ingroup init
+ *  @ingroup error
  */
 GLFWAPI GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun);
 
@@ -1214,24 +1021,20 @@ GLFWAPI GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun);
  *  This function returns an array of handles for all currently connected
  *  monitors.
  *
- *  @param[out] count Where to store the number of monitors in the returned
- *  array.  This is set to zero if an error occurred.
- *  @return An array of monitor handles, or `NULL` if an
- *  [error](@ref error_handling) occurred.
+ *  @param[out] count Where to store the size of the returned array.  This is
+ *  set to zero if an error occurred.
+ *  @return An array of monitor handles, or `NULL` if an error occurred.
  *
- *  @par Pointer Lifetime
- *  The returned array is allocated and freed by GLFW.  You should not free it
- *  yourself.  It is guaranteed to be valid only until the monitor configuration
- *  changes or the library is terminated.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note The returned array is allocated and freed by GLFW.  You should not
+ *  free it yourself.
  *
- *  @sa @ref monitor_monitors
- *  @sa @ref monitor_event
+ *  @note The returned array is valid only until the monitor configuration
+ *  changes.  See @ref glfwSetMonitorCallback to receive notifications of
+ *  configuration changes.
+ *
  *  @sa glfwGetPrimaryMonitor
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup monitor
  */
@@ -1242,16 +1045,11 @@ GLFWAPI GLFWmonitor** glfwGetMonitors(int* count);
  *  This function returns the primary monitor.  This is usually the monitor
  *  where elements like the Windows task bar or the OS X menu bar is located.
  *
- *  @return The primary monitor, or `NULL` if an [error](@ref error_handling)
- *  occurred.
+ *  @return The primary monitor, or `NULL` if an error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref monitor_monitors
  *  @sa glfwGetMonitors
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup monitor
  */
@@ -1262,19 +1060,11 @@ GLFWAPI GLFWmonitor* glfwGetPrimaryMonitor(void);
  *  This function returns the position, in screen coordinates, of the upper-left
  *  corner of the specified monitor.
  *
- *  Any or all of the position arguments may be `NULL`.  If an error occurs, all
- *  non-`NULL` position arguments will be set to zero.
- *
  *  @param[in] monitor The monitor to query.
  *  @param[out] xpos Where to store the monitor x-coordinate, or `NULL`.
  *  @param[out] ypos Where to store the monitor y-coordinate, or `NULL`.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref monitor_properties
- *
- *  @since Added in GLFW 3.0.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup monitor
  */
@@ -1285,55 +1075,35 @@ GLFWAPI void glfwGetMonitorPos(GLFWmonitor* monitor, int* xpos, int* ypos);
  *  This function returns the size, in millimetres, of the display area of the
  *  specified monitor.
  *
- *  Some systems do not provide accurate monitor size information, either
- *  because the monitor
- *  [EDID](https://en.wikipedia.org/wiki/Extended_display_identification_data)
- *  data is incorrect or because the driver does not report it accurately.
- *
- *  Any or all of the size arguments may be `NULL`.  If an error occurs, all
- *  non-`NULL` size arguments will be set to zero.
- *
  *  @param[in] monitor The monitor to query.
- *  @param[out] widthMM Where to store the width, in millimetres, of the
- *  monitor's display area, or `NULL`.
- *  @param[out] heightMM Where to store the height, in millimetres, of the
- *  monitor's display area, or `NULL`.
+ *  @param[out] width Where to store the width, in mm, of the monitor's display
+ *  area, or `NULL`.
+ *  @param[out] height Where to store the height, in mm, of the monitor's
+ *  display area, or `NULL`.
  *
- *  @remarks __Windows:__ The OS calculates the returned physical size from the
- *  current resolution and system DPI instead of querying the monitor EDID data.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref monitor_properties
- *
- *  @since Added in GLFW 3.0.
+ *  @note Some operating systems do not provide accurate information, either
+ *  because the monitor's EDID data is incorrect, or because the driver does not
+ *  report it accurately.
  *
  *  @ingroup monitor
  */
-GLFWAPI void glfwGetMonitorPhysicalSize(GLFWmonitor* monitor, int* widthMM, int* heightMM);
+GLFWAPI void glfwGetMonitorPhysicalSize(GLFWmonitor* monitor, int* width, int* height);
 
 /*! @brief Returns the name of the specified monitor.
  *
  *  This function returns a human-readable name, encoded as UTF-8, of the
- *  specified monitor.  The name typically reflects the make and model of the
- *  monitor and is not guaranteed to be unique among the connected monitors.
+ *  specified monitor.
  *
  *  @param[in] monitor The monitor to query.
- *  @return The UTF-8 encoded name of the monitor, or `NULL` if an
- *  [error](@ref error_handling) occurred.
+ *  @return The UTF-8 encoded name of the monitor, or `NULL` if an error
+ *  occurred.
  *
- *  @par Pointer Lifetime
- *  The returned string is allocated and freed by GLFW.  You should not free it
- *  yourself.  It is valid until the specified monitor is disconnected or the
- *  library is terminated.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref monitor_properties
- *
- *  @since Added in GLFW 3.0.
+ *  @note The returned string is allocated and freed by GLFW.  You should not
+ *  free it yourself.
  *
  *  @ingroup monitor
  */
@@ -1347,18 +1117,13 @@ GLFWAPI const char* glfwGetMonitorName(GLFWmonitor* monitor);
  *
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @bug __X11:__ This callback is not yet called on monitor configuration
+ *  @note This function may only be called from the main thread.
+ *
+ *  @bug **X11:** This callback is not yet called on monitor configuration
  *  changes.
- *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref monitor_event
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup monitor
  */
@@ -1374,24 +1139,17 @@ GLFWAPI GLFWmonitorfun glfwSetMonitorCallback(GLFWmonitorfun cbfun);
  *  @param[in] monitor The monitor to query.
  *  @param[out] count Where to store the number of video modes in the returned
  *  array.  This is set to zero if an error occurred.
- *  @return An array of video modes, or `NULL` if an
- *  [error](@ref error_handling) occurred.
+ *  @return An array of video modes, or `NULL` if an error occurred.
  *
- *  @par Pointer Lifetime
- *  The returned array is allocated and freed by GLFW.  You should not free it
- *  yourself.  It is valid until the specified monitor is disconnected, this
- *  function is called again for that monitor or the library is terminated.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note The returned array is allocated and freed by GLFW.  You should not
+ *  free it yourself.
  *
- *  @sa @ref monitor_modes
+ *  @note The returned array is valid only until this function is called again
+ *  for the specified monitor.
+ *
  *  @sa glfwGetVideoMode
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Changed to return an array of modes for a specific monitor.
  *
  *  @ingroup monitor
  */
@@ -1400,25 +1158,18 @@ GLFWAPI const GLFWvidmode* glfwGetVideoModes(GLFWmonitor* monitor, int* count);
 /*! @brief Returns the current mode of the specified monitor.
  *
  *  This function returns the current video mode of the specified monitor.  If
- *  you have created a full screen window for that monitor, the return value
- *  will depend on whether that window is iconified.
+ *  you are using a full screen window, the return value will therefore depend
+ *  on whether it is focused.
  *
  *  @param[in] monitor The monitor to query.
- *  @return The current mode of the monitor, or `NULL` if an
- *  [error](@ref error_handling) occurred.
+ *  @return The current mode of the monitor, or `NULL` if an error occurred.
  *
- *  @par Pointer Lifetime
- *  The returned array is allocated and freed by GLFW.  You should not free it
- *  yourself.  It is valid until the specified monitor is disconnected or the
- *  library is terminated.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note The returned struct is allocated and freed by GLFW.  You should not
+ *  free it yourself.
  *
- *  @sa @ref monitor_modes
  *  @sa glfwGetVideoModes
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwGetDesktopMode`.
  *
  *  @ingroup monitor
  */
@@ -1427,43 +1178,28 @@ GLFWAPI const GLFWvidmode* glfwGetVideoMode(GLFWmonitor* monitor);
 /*! @brief Generates a gamma ramp and sets it for the specified monitor.
  *
  *  This function generates a 256-element gamma ramp from the specified exponent
- *  and then calls @ref glfwSetGammaRamp with it.  The value must be a finite
- *  number greater than zero.
+ *  and then calls @ref glfwSetGammaRamp with it.
  *
  *  @param[in] monitor The monitor whose gamma ramp to set.
  *  @param[in] gamma The desired exponent.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref monitor_gamma
- *
- *  @since Added in GLFW 3.0.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup monitor
  */
 GLFWAPI void glfwSetGamma(GLFWmonitor* monitor, float gamma);
 
-/*! @brief Returns the current gamma ramp for the specified monitor.
+/*! @brief Retrieves the current gamma ramp for the specified monitor.
  *
- *  This function returns the current gamma ramp of the specified monitor.
+ *  This function retrieves the current gamma ramp of the specified monitor.
  *
  *  @param[in] monitor The monitor to query.
- *  @return The current gamma ramp, or `NULL` if an
- *  [error](@ref error_handling) occurred.
+ *  @return The current gamma ramp, or `NULL` if an error occurred.
  *
- *  @par Pointer Lifetime
- *  The returned structure and its arrays are allocated and freed by GLFW.  You
- *  should not free them yourself.  They are valid until the specified monitor
- *  is disconnected, this function is called again for that monitor or the
- *  library is terminated.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref monitor_gamma
- *
- *  @since Added in GLFW 3.0.
+ *  @note The value arrays of the returned ramp are allocated and freed by GLFW.
+ *  You should not free them yourself.
  *
  *  @ingroup monitor
  */
@@ -1471,27 +1207,14 @@ GLFWAPI const GLFWgammaramp* glfwGetGammaRamp(GLFWmonitor* monitor);
 
 /*! @brief Sets the current gamma ramp for the specified monitor.
  *
- *  This function sets the current gamma ramp for the specified monitor.  The
- *  original gamma ramp for that monitor is saved by GLFW the first time this
- *  function is called and is restored by @ref glfwTerminate.
+ *  This function sets the current gamma ramp for the specified monitor.
  *
  *  @param[in] monitor The monitor whose gamma ramp to set.
  *  @param[in] ramp The gamma ramp to use.
  *
- *  @remarks Gamma ramp sizes other than 256 are not supported by all platforms
- *  or graphics hardware.
+ *  @note This function may only be called from the main thread.
  *
- *  @remarks __Windows:__ The gamma ramp size must be 256.
- *
- *  @par Pointer Lifetime
- *  The specified gamma ramp is copied before this function returns.
- *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref monitor_gamma
- *
- *  @since Added in GLFW 3.0.
+ *  @note Gamma ramp sizes other than 256 are not supported by all hardware.
  *
  *  @ingroup monitor
  */
@@ -1502,13 +1225,9 @@ GLFWAPI void glfwSetGammaRamp(GLFWmonitor* monitor, const GLFWgammaramp* ramp);
  *  This function resets all window hints to their
  *  [default values](@ref window_hints_values).
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_hints
  *  @sa glfwWindowHint
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup window
  */
@@ -1519,18 +1238,18 @@ GLFWAPI void glfwDefaultWindowHints(void);
  *  This function sets hints for the next call to @ref glfwCreateWindow.  The
  *  hints, once set, retain their values until changed by a call to @ref
  *  glfwWindowHint or @ref glfwDefaultWindowHints, or until the library is
- *  terminated.
+ *  terminated with @ref glfwTerminate.
  *
  *  @param[in] target The [window hint](@ref window_hints) to set.
  *  @param[in] hint The new value of the window hint.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @par New in GLFW 3
+ *  Hints are no longer reset to their default values on window creation.  To
+ *  set default hint values, use @ref glfwDefaultWindowHints.
  *
- *  @sa @ref window_hints
+ *  @note This function may only be called from the main thread.
+ *
  *  @sa glfwDefaultWindowHints
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwOpenWindowHint`.
  *
  *  @ingroup window
  */
@@ -1538,50 +1257,32 @@ GLFWAPI void glfwWindowHint(int target, int hint);
 
 /*! @brief Creates a window and its associated context.
  *
- *  This function creates a window and its associated OpenGL or OpenGL ES
- *  context.  Most of the options controlling how the window and its context
- *  should be created are specified with [window hints](@ref window_hints).
+ *  This function creates a window and its associated context.  Most of the
+ *  options controlling how the window and its context should be created are
+ *  specified through @ref glfwWindowHint.
  *
  *  Successful creation does not change which context is current.  Before you
- *  can use the newly created context, you need to
- *  [make it current](@ref context_current).  For information about the `share`
- *  parameter, see @ref context_sharing.
+ *  can use the newly created context, you need to make it current using @ref
+ *  glfwMakeContextCurrent.
  *
- *  The created window, framebuffer and context may differ from what you
- *  requested, as not all parameters and hints are
+ *  Note that the created window and context may differ from what you requested,
+ *  as not all parameters and hints are
  *  [hard constraints](@ref window_hints_hard).  This includes the size of the
- *  window, especially for full screen windows.  To query the actual attributes
- *  of the created window, framebuffer and context, use queries like @ref
+ *  window, especially for full screen windows.  To retrieve the actual
+ *  attributes of the created window and context, use queries like @ref
  *  glfwGetWindowAttrib and @ref glfwGetWindowSize.
  *
- *  To create a full screen window, you need to specify the monitor the window
- *  will cover.  If no monitor is specified, windowed mode will be used.  Unless
- *  you have a way for the user to choose a specific monitor, it is recommended
- *  that you pick the primary monitor.  For more information on how to query
- *  connected monitors, see @ref monitor_monitors.
+ *  To create a full screen window, you need to specify the monitor to use.  If
+ *  no monitor is specified, windowed mode will be used.  Unless you have a way
+ *  for the user to choose a specific monitor, it is recommended that you pick
+ *  the primary monitor.  For more information on how to retrieve monitors, see
+ *  @ref monitor_monitors.
  *
- *  For full screen windows, the specified size becomes the resolution of the
- *  window's _desired video mode_.  As long as a full screen window has input
- *  focus, the supported video mode most closely matching the desired video mode
- *  is set for the specified monitor.  For more information about full screen
- *  windows, including the creation of so called _windowed full screen_ or
- *  _borderless full screen_ windows, see @ref window_windowed_full_screen.
+ *  To create the window at a specific position, make it initially invisible
+ *  using the `GLFW_VISIBLE` window hint, set its position and then show it.
  *
- *  By default, newly created windows use the placement recommended by the
- *  window system.  To create the window at a specific position, make it
- *  initially invisible using the [GLFW_VISIBLE](@ref window_hints_wnd) window
- *  hint, set its [position](@ref window_pos) and then [show](@ref window_hide)
- *  it.
- *
- *  If a full screen window has input focus, the screensaver is prohibited from
+ *  If a full screen window is active, the screensaver is prohibited from
  *  starting.
- *
- *  Window systems put limits on window sizes.  Very large or very small window
- *  dimensions may be overridden by the window system on creation.  Check the
- *  actual [size](@ref window_size) after creation.
- *
- *  The [swap interval](@ref buffer_swap) is not set during window creation and
- *  the initial value may vary depending on driver settings and defaults.
  *
  *  @param[in] width The desired width, in screen coordinates, of the window.
  *  This must be greater than zero.
@@ -1592,53 +1293,31 @@ GLFWAPI void glfwWindowHint(int target, int hint);
  *  windowed mode.
  *  @param[in] share The window whose context to share resources with, or `NULL`
  *  to not share resources.
- *  @return The handle of the created window, or `NULL` if an
- *  [error](@ref error_handling) occurred.
+ *  @return The handle of the created window, or `NULL` if an error occurred.
  *
- *  @remarks __Windows:__ Window creation will fail if the Microsoft GDI
+ *  @remarks **Windows:** Window creation will fail if the Microsoft GDI
  *  software OpenGL implementation is the only one available.
  *
- *  @remarks __Windows:__ If the executable has an icon resource named
+ *  @remarks **Windows:** If the executable has an icon resource named
  *  `GLFW_ICON,` it will be set as the icon for the window.  If no such icon is
  *  present, the `IDI_WINLOGO` icon will be used instead.
  *
- *  @remarks __Windows:__ The context to share resources with may not be current
- *  on any other thread.
- *
- *  @remarks __OS X:__ The GLFW window has no icon, as it is not a document
+ *  @remarks **OS X:** The GLFW window has no icon, as it is not a document
  *  window, but the dock icon will be the same as the application bundle's icon.
- *  For more information on bundles, see the
- *  [Bundle Programming Guide](https://developer.apple.com/library/mac/documentation/CoreFoundation/Conceptual/CFBundles/)
- *  in the Mac Developer Library.
+ *  Also, the first time a window is opened the menu bar is populated with
+ *  common commands like Hide, Quit and About.  The (minimal) about dialog uses
+ *  information from the application's bundle.  For more information on bundles,
+ *  see the Bundle Programming Guide provided by Apple.
  *
- *  @remarks __OS X:__ The first time a window is created the menu bar is
- *  populated with common commands like Hide, Quit and About.  The About entry
- *  opens a minimal about dialog with information from the application's bundle.
- *  The menu bar can be disabled with a
- *  [compile-time option](@ref compile_options_osx).
+ *  @remarks **X11:** There is no mechanism for setting the window icon yet.
  *
- *  @remarks __OS X:__ On OS X 10.10 and later the window frame will not be
- *  rendered at full resolution on Retina displays unless the
- *  `NSHighResolutionCapable` key is enabled in the application bundle's
- *  `Info.plist`.  For more information, see
- *  [High Resolution Guidelines for OS X](https://developer.apple.com/library/mac/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Explained/Explained.html)
- *  in the Mac Developer Library.
+ *  @remarks The swap interval is not set during window creation, but is left at
+ *  the default value for that platform.  For more information, see @ref
+ *  glfwSwapInterval.
  *
- *  @remarks __X11:__ There is no mechanism for setting the window icon yet.
+ *  @note This function may only be called from the main thread.
  *
- *  @remarks __X11:__ Some window managers will not respect the placement of
- *  initially hidden windows.
- *
- *  @par Reentrancy
- *  This function may not be called from a callback.
- *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_creation
  *  @sa glfwDestroyWindow
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwOpenWindow`.
  *
  *  @ingroup window
  */
@@ -1649,24 +1328,18 @@ GLFWAPI GLFWwindow* glfwCreateWindow(int width, int height, const char* title, G
  *  This function destroys the specified window and its context.  On calling
  *  this function, no further callbacks will be called for that window.
  *
- *  If the context of the specified window is current on the main thread, it is
- *  detached before being destroyed.
- *
  *  @param[in] window The window to destroy.
  *
- *  @note The context of the specified window must not be current on any other
- *  thread when this function is called.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Reentrancy
- *  This function may not be called from a callback.
+ *  @note This function may not be called from a callback.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note If the window's context is current on the main thread, it is
+ *  detached before being destroyed.
  *
- *  @sa @ref window_creation
+ *  @warning The window's context must not be current on any other thread.
+ *
  *  @sa glfwCreateWindow
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwCloseWindow`.
  *
  *  @ingroup window
  */
@@ -1679,12 +1352,7 @@ GLFWAPI void glfwDestroyWindow(GLFWwindow* window);
  *  @param[in] window The window to query.
  *  @return The value of the close flag.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.  Access is not synchronized.
- *
- *  @sa @ref window_close
- *
- *  @since Added in GLFW 3.0.
+ *  @remarks This function may be called from any thread.
  *
  *  @ingroup window
  */
@@ -1699,12 +1367,7 @@ GLFWAPI int glfwWindowShouldClose(GLFWwindow* window);
  *  @param[in] window The window whose flag to change.
  *  @param[in] value The new value.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.  Access is not synchronized.
- *
- *  @sa @ref window_close
- *
- *  @since Added in GLFW 3.0.
+ *  @remarks This function may be called from any thread.
  *
  *  @ingroup window
  */
@@ -1718,15 +1381,7 @@ GLFWAPI void glfwSetWindowShouldClose(GLFWwindow* window, int value);
  *  @param[in] window The window whose title to change.
  *  @param[in] title The UTF-8 encoded window title.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_title
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -1737,22 +1392,15 @@ GLFWAPI void glfwSetWindowTitle(GLFWwindow* window, const char* title);
  *  This function retrieves the position, in screen coordinates, of the
  *  upper-left corner of the client area of the specified window.
  *
- *  Any or all of the position arguments may be `NULL`.  If an error occurs, all
- *  non-`NULL` position arguments will be set to zero.
- *
  *  @param[in] window The window to query.
  *  @param[out] xpos Where to store the x-coordinate of the upper-left corner of
  *  the client area, or `NULL`.
  *  @param[out] ypos Where to store the y-coordinate of the upper-left corner of
  *  the client area, or `NULL`.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_pos
  *  @sa glfwSetWindowPos
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup window
  */
@@ -1761,29 +1409,26 @@ GLFWAPI void glfwGetWindowPos(GLFWwindow* window, int* xpos, int* ypos);
 /*! @brief Sets the position of the client area of the specified window.
  *
  *  This function sets the position, in screen coordinates, of the upper-left
- *  corner of the client area of the specified windowed mode window.  If the
- *  window is a full screen window, this function does nothing.
+ *  corner of the client area of the window.
  *
- *  __Do not use this function__ to move an already visible window unless you
- *  have very good reasons for doing so, as it will confuse and annoy the user.
+ *  If the specified window is a full screen window, this function does nothing.
  *
- *  The window manager may put limits on what positions are allowed.  GLFW
- *  cannot and should not override these limits.
+ *  If you wish to set an initial window position you should create a hidden
+ *  window (using @ref glfwWindowHint and `GLFW_VISIBLE`), set its position and
+ *  then show it.
  *
  *  @param[in] window The window to query.
  *  @param[in] xpos The x-coordinate of the upper-left corner of the client area.
  *  @param[in] ypos The y-coordinate of the upper-left corner of the client area.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note It is very rarely a good idea to move an already visible window, as it
+ *  will confuse and annoy the user.
  *
- *  @sa @ref window_pos
+ *  @note This function may only be called from the main thread.
+ *
+ *  @note The window manager may put limits on what positions are allowed.
+ *
  *  @sa glfwGetWindowPos
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.
  *
  *  @ingroup window
  */
@@ -1793,10 +1438,7 @@ GLFWAPI void glfwSetWindowPos(GLFWwindow* window, int xpos, int ypos);
  *
  *  This function retrieves the size, in screen coordinates, of the client area
  *  of the specified window.  If you wish to retrieve the size of the
- *  framebuffer of the window in pixels, see @ref glfwGetFramebufferSize.
- *
- *  Any or all of the size arguments may be `NULL`.  If an error occurs, all
- *  non-`NULL` size arguments will be set to zero.
+ *  framebuffer in pixels, see @ref glfwGetFramebufferSize.
  *
  *  @param[in] window The window whose size to retrieve.
  *  @param[out] width Where to store the width, in screen coordinates, of the
@@ -1804,16 +1446,9 @@ GLFWAPI void glfwSetWindowPos(GLFWwindow* window, int xpos, int ypos);
  *  @param[out] height Where to store the height, in screen coordinates, of the
  *  client area, or `NULL`.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_size
  *  @sa glfwSetWindowSize
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.
  *
  *  @ingroup window
  */
@@ -1829,23 +1464,15 @@ GLFWAPI void glfwGetWindowSize(GLFWwindow* window, int* width, int* height);
  *  the context is unaffected, the bit depths of the framebuffer remain
  *  unchanged.
  *
- *  The window manager may put limits on what sizes are allowed.  GLFW cannot
- *  and should not override these limits.
- *
  *  @param[in] window The window to resize.
  *  @param[in] width The desired width of the specified window.
  *  @param[in] height The desired height of the specified window.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_size
+ *  @note The window manager may put limits on what window sizes are allowed.
+ *
  *  @sa glfwGetWindowSize
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.
  *
  *  @ingroup window
  */
@@ -1857,22 +1484,15 @@ GLFWAPI void glfwSetWindowSize(GLFWwindow* window, int width, int height);
  *  specified window.  If you wish to retrieve the size of the window in screen
  *  coordinates, see @ref glfwGetWindowSize.
  *
- *  Any or all of the size arguments may be `NULL`.  If an error occurs, all
- *  non-`NULL` size arguments will be set to zero.
- *
  *  @param[in] window The window whose framebuffer to query.
  *  @param[out] width Where to store the width, in pixels, of the framebuffer,
  *  or `NULL`.
  *  @param[out] height Where to store the height, in pixels, of the framebuffer,
  *  or `NULL`.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_fbsize
  *  @sa glfwSetFramebufferSizeCallback
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup window
  */
@@ -1885,29 +1505,21 @@ GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height)
  *  window has one.  The size of the frame may vary depending on the
  *  [window-related hints](@ref window_hints_wnd) used to create it.
  *
- *  Because this function retrieves the size of each window frame edge and not
- *  the offset along a particular coordinate axis, the retrieved values will
- *  always be zero or positive.
- *
- *  Any or all of the size arguments may be `NULL`.  If an error occurs, all
- *  non-`NULL` size arguments will be set to zero.
- *
  *  @param[in] window The window whose frame size to query.
  *  @param[out] left Where to store the size, in screen coordinates, of the left
- *  edge of the window frame, or `NULL`.
+ *  edge of the window frame.
  *  @param[out] top Where to store the size, in screen coordinates, of the top
- *  edge of the window frame, or `NULL`.
+ *  edge of the window frame.
  *  @param[out] right Where to store the size, in screen coordinates, of the
- *  right edge of the window frame, or `NULL`.
+ *  right edge of the window frame.
  *  @param[out] bottom Where to store the size, in screen coordinates, of the
- *  bottom edge of the window frame, or `NULL`.
+ *  bottom edge of the window frame.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @remarks This function returns the size of each window frame edge, not its
+ *  offset from the client area edge, so the returned values will always be zero
+ *  or positive.
  *
- *  @sa @ref window_size
- *
- *  @since Added in GLFW 3.1.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -1915,25 +1527,16 @@ GLFWAPI void glfwGetWindowFrameSize(GLFWwindow* window, int* left, int* top, int
 
 /*! @brief Iconifies the specified window.
  *
- *  This function iconifies (minimizes) the specified window if it was
- *  previously restored.  If the window is already iconified, this function does
- *  nothing.
- *
- *  If the specified window is a full screen window, the original monitor
- *  resolution is restored until the window is restored.
+ *  This function iconifies/minimizes the specified window, if it was previously
+ *  restored.  If it is a full screen window, the original monitor resolution is
+ *  restored until the window is restored.  If the window is already iconified,
+ *  this function does nothing.
  *
  *  @param[in] window The window to iconify.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_iconify
  *  @sa glfwRestoreWindow
- *
- *  @since Added in GLFW 2.1.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.
  *
  *  @ingroup window
  */
@@ -1941,24 +1544,16 @@ GLFWAPI void glfwIconifyWindow(GLFWwindow* window);
 
 /*! @brief Restores the specified window.
  *
- *  This function restores the specified window if it was previously iconified
- *  (minimized).  If the window is already restored, this function does nothing.
- *
- *  If the specified window is a full screen window, the resolution chosen for
- *  the window is restored on the selected monitor.
+ *  This function restores the specified window, if it was previously
+ *  iconified/minimized.  If it is a full screen window, the resolution chosen
+ *  for the window is restored on the selected monitor.  If the window is
+ *  already restored, this function does nothing.
  *
  *  @param[in] window The window to restore.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_iconify
  *  @sa glfwIconifyWindow
- *
- *  @since Added in GLFW 2.1.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.
  *
  *  @ingroup window
  */
@@ -1966,19 +1561,15 @@ GLFWAPI void glfwRestoreWindow(GLFWwindow* window);
 
 /*! @brief Makes the specified window visible.
  *
- *  This function makes the specified window visible if it was previously
+ *  This function makes the specified window visible, if it was previously
  *  hidden.  If the window is already visible or is in full screen mode, this
  *  function does nothing.
  *
  *  @param[in] window The window to make visible.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_hide
  *  @sa glfwHideWindow
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup window
  */
@@ -1986,19 +1577,15 @@ GLFWAPI void glfwShowWindow(GLFWwindow* window);
 
 /*! @brief Hides the specified window.
  *
- *  This function hides the specified window if it was previously visible.  If
+ *  This function hides the specified window, if it was previously visible.  If
  *  the window is already hidden or is in full screen mode, this function does
  *  nothing.
  *
  *  @param[in] window The window to hide.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_hide
  *  @sa glfwShowWindow
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup window
  */
@@ -2010,15 +1597,9 @@ GLFWAPI void glfwHideWindow(GLFWwindow* window);
  *  in full screen on.
  *
  *  @param[in] window The window to query.
- *  @return The monitor, or `NULL` if the window is in windowed mode or an error
- *  occurred.
+ *  @return The monitor, or `NULL` if the window is in windowed mode.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_monitor
- *
- *  @since Added in GLFW 3.0.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -2026,22 +1607,15 @@ GLFWAPI GLFWmonitor* glfwGetWindowMonitor(GLFWwindow* window);
 
 /*! @brief Returns an attribute of the specified window.
  *
- *  This function returns the value of an attribute of the specified window or
- *  its OpenGL or OpenGL ES context.
+ *  This function returns an attribute of the specified window.  There are many
+ *  attributes, some related to the window and others to its context.
  *
  *  @param[in] window The window to query.
  *  @param[in] attrib The [window attribute](@ref window_attribs) whose value to
  *  return.
- *  @return The value of the attribute, or zero if an
- *  [error](@ref error_handling) occurred.
+ *  @return The value of the attribute, or zero if an error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_attribs
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwGetWindowParam` and
- *  `glfwGetGLVersion`.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -2056,13 +1630,9 @@ GLFWAPI int glfwGetWindowAttrib(GLFWwindow* window, int attrib);
  *  @param[in] window The window whose pointer to set.
  *  @param[in] pointer The new value.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.  Access is not synchronized.
+ *  @remarks This function may be called from any thread.
  *
- *  @sa @ref window_userptr
  *  @sa glfwGetWindowUserPointer
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup window
  */
@@ -2075,13 +1645,9 @@ GLFWAPI void glfwSetWindowUserPointer(GLFWwindow* window, void* pointer);
  *
  *  @param[in] window The window whose pointer to return.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.  Access is not synchronized.
+ *  @remarks This function may be called from any thread.
  *
- *  @sa @ref window_userptr
  *  @sa glfwSetWindowUserPointer
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup window
  */
@@ -2096,15 +1662,10 @@ GLFWAPI void* glfwGetWindowUserPointer(GLFWwindow* window);
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_pos
- *
- *  @since Added in GLFW 3.0.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -2119,18 +1680,10 @@ GLFWAPI GLFWwindowposfun glfwSetWindowPosCallback(GLFWwindow* window, GLFWwindow
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_size
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.  Updated callback signature.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -2150,21 +1703,16 @@ GLFWAPI GLFWwindowsizefun glfwSetWindowSizeCallback(GLFWwindow* window, GLFWwind
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @remarks __OS X:__ Selecting Quit from the application menu will
+ *  @par New in GLFW 3
+ *  The close callback no longer returns a value.
+ *
+ *  @remarks **OS X:** Selecting Quit from the application menu will
  *  trigger the close callback for all windows.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_close
- *
- *  @since Added in GLFW 2.5.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.  Updated callback signature.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -2183,18 +1731,14 @@ GLFWAPI GLFWwindowclosefun glfwSetWindowCloseCallback(GLFWwindow* window, GLFWwi
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref window_refresh
- *
- *  @since Added in GLFW 2.5.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.  Updated callback signature.
+ *  @note On compositing window systems such as Aero, Compiz or Aqua, where the
+ *  window contents are saved off-screen, this callback may be called only very
+ *  infrequently or never at all.
  *
  *  @ingroup window
  */
@@ -2203,25 +1747,20 @@ GLFWAPI GLFWwindowrefreshfun glfwSetWindowRefreshCallback(GLFWwindow* window, GL
 /*! @brief Sets the focus callback for the specified window.
  *
  *  This function sets the focus callback of the specified window, which is
- *  called when the window gains or loses input focus.
+ *  called when the window gains or loses focus.
  *
- *  After the focus callback is called for a window that lost input focus,
- *  synthetic key and mouse button release events will be generated for all such
- *  that had been pressed.  For more information, see @ref glfwSetKeyCallback
- *  and @ref glfwSetMouseButtonCallback.
+ *  After the focus callback is called for a window that lost focus, synthetic
+ *  key and mouse button release events will be generated for all such that had
+ *  been pressed.  For more information, see @ref glfwSetKeyCallback and @ref
+ *  glfwSetMouseButtonCallback.
  *
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_focus
- *
- *  @since Added in GLFW 3.0.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -2235,15 +1774,10 @@ GLFWAPI GLFWwindowfocusfun glfwSetWindowFocusCallback(GLFWwindow* window, GLFWwi
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_iconify
- *
- *  @since Added in GLFW 3.0.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -2257,15 +1791,10 @@ GLFWAPI GLFWwindowiconifyfun glfwSetWindowIconifyCallback(GLFWwindow* window, GL
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref window_fbsize
- *
- *  @since Added in GLFW 3.0.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup window
  */
@@ -2273,75 +1802,67 @@ GLFWAPI GLFWframebuffersizefun glfwSetFramebufferSizeCallback(GLFWwindow* window
 
 /*! @brief Processes all pending events.
  *
- *  This function processes only those events that are already in the event
- *  queue and then returns immediately.  Processing events will cause the window
- *  and input callbacks associated with those events to be called.
+ *  This function processes only those events that have already been received
+ *  and then returns immediately.  Processing events will cause the window and
+ *  input callbacks associated with those events to be called.
  *
- *  On some platforms, a window move, resize or menu operation will cause event
- *  processing to block.  This is due to how event processing is designed on
- *  those platforms.  You can use the
- *  [window refresh callback](@ref window_refresh) to redraw the contents of
- *  your window when necessary during such operations.
+ *  This function is not required for joystick input to work.
  *
- *  On some platforms, certain events are sent directly to the application
- *  without going through the event queue, causing callbacks to be called
- *  outside of a call to one of the event processing functions.
+ *  @par New in GLFW 3
+ *  This function is no longer called by @ref glfwSwapBuffers.  You need to call
+ *  it or @ref glfwWaitEvents yourself.
  *
- *  Event processing is not required for joystick input to work.
+ *  @remarks On some platforms, a window move, resize or menu operation will
+ *  cause event processing to block.  This is due to how event processing is
+ *  designed on those platforms.  You can use the
+ *  [window refresh callback](@ref GLFWwindowrefreshfun) to redraw the contents
+ *  of your window when necessary during the operation.
  *
- *  @par Reentrancy
- *  This function may not be called from a callback.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may not be called from a callback.
  *
- *  @sa @ref events
+ *  @note On some platforms, certain callbacks may be called outside of a call
+ *  to one of the event processing functions.
+ *
  *  @sa glfwWaitEvents
- *
- *  @since Added in GLFW 1.0.
  *
  *  @ingroup window
  */
 GLFWAPI void glfwPollEvents(void);
 
-/*! @brief Waits until events are queued and processes them.
+/*! @brief Waits until events are pending and processes them.
  *
- *  This function puts the calling thread to sleep until at least one event is
- *  available in the event queue.  Once one or more events are available,
- *  it behaves exactly like @ref glfwPollEvents, i.e. the events in the queue
- *  are processed and the function then returns immediately.  Processing events
- *  will cause the window and input callbacks associated with those events to be
- *  called.
+ *  This function puts the calling thread to sleep until at least one event has
+ *  been received.  Once one or more events have been received, it behaves as if
+ *  @ref glfwPollEvents was called, i.e. the events are processed and the
+ *  function then returns immediately.  Processing events will cause the window
+ *  and input callbacks associated with those events to be called.
  *
  *  Since not all events are associated with callbacks, this function may return
  *  without a callback having been called even if you are monitoring all
  *  callbacks.
  *
- *  On some platforms, a window move, resize or menu operation will cause event
- *  processing to block.  This is due to how event processing is designed on
- *  those platforms.  You can use the
- *  [window refresh callback](@ref window_refresh) to redraw the contents of
- *  your window when necessary during such operations.
+ *  This function is not required for joystick input to work.
  *
- *  On some platforms, certain callbacks may be called outside of a call to one
- *  of the event processing functions.
+ *  @remarks On some platforms, a window move, resize or menu operation will
+ *  cause event processing to block.  This is due to how event processing is
+ *  designed on those platforms.  You can use the
+ *  [window refresh callback](@ref GLFWwindowrefreshfun) to redraw the contents
+ *  of your window when necessary during the operation.
  *
- *  If no windows exist, this function returns immediately.  For synchronization
- *  of threads in applications that do not create windows, use your threading
- *  library of choice.
+ *  @remarks If no windows exist, this function returns immediately.  For
+ *  synchronization of threads in applications that do not create windows, use
+ *  your threading library of choice.
  *
- *  Event processing is not required for joystick input to work.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Reentrancy
- *  This function may not be called from a callback.
+ *  @note This function may not be called from a callback.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note On some platforms, certain callbacks may be called outside of a call
+ *  to one of the event processing functions.
  *
- *  @sa @ref events
  *  @sa glfwPollEvents
- *
- *  @since Added in GLFW 2.5.
  *
  *  @ingroup window
  */
@@ -2349,20 +1870,16 @@ GLFWAPI void glfwWaitEvents(void);
 
 /*! @brief Posts an empty event to the event queue.
  *
- *  This function posts an empty event from the current thread to the event
- *  queue, causing @ref glfwWaitEvents to return.
+ *  This function posts an empty event from the current thread to the main
+ *  thread event queue, causing @ref glfwWaitEvents to return.
  *
- *  If no windows exist, this function returns immediately.  For synchronization
- *  of threads in applications that do not create windows, use your threading
- *  library of choice.
+ *  @remarks If no windows exist, this function returns immediately.  For
+ *  synchronization of threads in applications that do not create windows, use
+ *  your threading library of choice.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.
+ *  @remarks This function may be called from any thread.
  *
- *  @sa @ref events
  *  @sa glfwWaitEvents
- *
- *  @since Added in GLFW 3.1.
  *
  *  @ingroup window
  */
@@ -2370,66 +1887,53 @@ GLFWAPI void glfwPostEmptyEvent(void);
 
 /*! @brief Returns the value of an input option for the specified window.
  *
- *  This function returns the value of an input option for the specified window.
- *  The mode must be one of `GLFW_CURSOR`, `GLFW_STICKY_KEYS` or
- *  `GLFW_STICKY_MOUSE_BUTTONS`.
- *
  *  @param[in] window The window to query.
  *  @param[in] mode One of `GLFW_CURSOR`, `GLFW_STICKY_KEYS` or
  *  `GLFW_STICKY_MOUSE_BUTTONS`.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
  *  @sa glfwSetInputMode
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup input
  */
 GLFWAPI int glfwGetInputMode(GLFWwindow* window, int mode);
 
 /*! @brief Sets an input option for the specified window.
- *
- *  This function sets an input mode option for the specified window.  The mode
- *  must be one of `GLFW_CURSOR`, `GLFW_STICKY_KEYS` or
- *  `GLFW_STICKY_MOUSE_BUTTONS`.
- *
- *  If the mode is `GLFW_CURSOR`, the value must be one of the following cursor
- *  modes:
- *  - `GLFW_CURSOR_NORMAL` makes the cursor visible and behaving normally.
- *  - `GLFW_CURSOR_HIDDEN` makes the cursor invisible when it is over the client
- *    area of the window but does not restrict the cursor from leaving.
- *  - `GLFW_CURSOR_DISABLED` hides and grabs the cursor, providing virtual
- *    and unlimited cursor movement.  This is useful for implementing for
- *    example 3D camera controls.
- *
- *  If the mode is `GLFW_STICKY_KEYS`, the value must be either `GL_TRUE` to
- *  enable sticky keys, or `GL_FALSE` to disable it.  If sticky keys are
- *  enabled, a key press will ensure that @ref glfwGetKey returns `GLFW_PRESS`
- *  the next time it is called even if the key had been released before the
- *  call.  This is useful when you are only interested in whether keys have been
- *  pressed but not when or in which order.
- *
- *  If the mode is `GLFW_STICKY_MOUSE_BUTTONS`, the value must be either
- *  `GL_TRUE` to enable sticky mouse buttons, or `GL_FALSE` to disable it.  If
- *  sticky mouse buttons are enabled, a mouse button press will ensure that @ref
- *  glfwGetMouseButton returns `GLFW_PRESS` the next time it is called even if
- *  the mouse button had been released before the call.  This is useful when you
- *  are only interested in whether mouse buttons have been pressed but not when
- *  or in which order.
- *
  *  @param[in] window The window whose input mode to set.
  *  @param[in] mode One of `GLFW_CURSOR`, `GLFW_STICKY_KEYS` or
  *  `GLFW_STICKY_MOUSE_BUTTONS`.
  *  @param[in] value The new value of the specified input mode.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  If `mode` is `GLFW_CURSOR`, the value must be one of the supported input
+ *  modes:
+ *  - `GLFW_CURSOR_NORMAL` makes the cursor visible and behaving normally.
+ *  - `GLFW_CURSOR_HIDDEN` makes the cursor invisible when it is over the client
+ *    area of the window but does not restrict the cursor from leaving.  This is
+ *    useful if you wish to render your own cursor or have no visible cursor at
+ *    all.
+ *  - `GLFW_CURSOR_DISABLED` hides and grabs the cursor, providing virtual
+ *    and unlimited cursor movement.  This is useful for implementing for
+ *    example 3D camera controls.
+ *
+ *  If `mode` is `GLFW_STICKY_KEYS`, the value must be either `GL_TRUE` to
+ *  enable sticky keys, or `GL_FALSE` to disable it.  If sticky keys are
+ *  enabled, a key press will ensure that @ref glfwGetKey returns @ref
+ *  GLFW_PRESS the next time it is called even if the key had been released
+ *  before the call.  This is useful when you are only interested in whether
+ *  keys have been pressed but not when or in which order.
+ *
+ *  If `mode` is `GLFW_STICKY_MOUSE_BUTTONS`, the value must be either `GL_TRUE`
+ *  to enable sticky mouse buttons, or `GL_FALSE` to disable it.  If sticky
+ *  mouse buttons are enabled, a mouse button press will ensure that @ref
+ *  glfwGetMouseButton returns @ref GLFW_PRESS the next time it is called even
+ *  if the mouse button had been released before the call.  This is useful when
+ *  you are only interested in whether mouse buttons have been pressed but not
+ *  when or in which order.
+ *
+ *  @note This function may only be called from the main thread.
  *
  *  @sa glfwGetInputMode
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwEnable` and `glfwDisable`.
  *
  *  @ingroup input
  */
@@ -2440,34 +1944,24 @@ GLFWAPI void glfwSetInputMode(GLFWwindow* window, int mode, int value);
  *
  *  This function returns the last state reported for the specified key to the
  *  specified window.  The returned state is one of `GLFW_PRESS` or
- *  `GLFW_RELEASE`.  The higher-level action `GLFW_REPEAT` is only reported to
+ *  `GLFW_RELEASE`.  The higher-level state `GLFW_REPEAT` is only reported to
  *  the key callback.
  *
  *  If the `GLFW_STICKY_KEYS` input mode is enabled, this function returns
- *  `GLFW_PRESS` the first time you call it for a key that was pressed, even if
- *  that key has already been released.
+ *  `GLFW_PRESS` the first time you call this function after a key has been
+ *  pressed, even if the key has already been released.
  *
  *  The key functions deal with physical keys, with [key tokens](@ref keys)
  *  named after their use on the standard US keyboard layout.  If you want to
  *  input text, use the Unicode character callback instead.
  *
- *  The [modifier key bit masks](@ref mods) are not key tokens and cannot be
- *  used with this function.
- *
  *  @param[in] window The desired window.
- *  @param[in] key The desired [keyboard key](@ref keys).  `GLFW_KEY_UNKNOWN` is
- *  not a valid key for this function.
+ *  @param[in] key The desired [keyboard key](@ref keys).
  *  @return One of `GLFW_PRESS` or `GLFW_RELEASE`.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref input_key
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.
+ *  @note `GLFW_KEY_UNKNOWN` is not a valid key for this function.
  *
  *  @ingroup input
  */
@@ -2477,37 +1971,28 @@ GLFWAPI int glfwGetKey(GLFWwindow* window, int key);
  *  window.
  *
  *  This function returns the last state reported for the specified mouse button
- *  to the specified window.  The returned state is one of `GLFW_PRESS` or
- *  `GLFW_RELEASE`.
+ *  to the specified window.
  *
  *  If the `GLFW_STICKY_MOUSE_BUTTONS` input mode is enabled, this function
- *  `GLFW_PRESS` the first time you call it for a mouse button that was pressed,
- *  even if that mouse button has already been released.
+ *  returns `GLFW_PRESS` the first time you call this function after a mouse
+ *  button has been pressed, even if the mouse button has already been released.
  *
  *  @param[in] window The desired window.
  *  @param[in] button The desired [mouse button](@ref buttons).
  *  @return One of `GLFW_PRESS` or `GLFW_RELEASE`.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref input_mouse_button
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
 GLFWAPI int glfwGetMouseButton(GLFWwindow* window, int button);
 
-/*! @brief Retrieves the position of the cursor relative to the client area of
- *  the window.
+/*! @brief Retrieves the last reported cursor position, relative to the client
+ *  area of the window.
  *
- *  This function returns the position of the cursor, in screen coordinates,
- *  relative to the upper-left corner of the client area of the specified
- *  window.
+ *  This function returns the last reported position of the cursor, in screen
+ *  coordinates, relative to the upper-left corner of the client area of the
+ *  specified window.
  *
  *  If the cursor is disabled (with `GLFW_CURSOR_DISABLED`) then the cursor
  *  position is unbounded and limited only by the minimum and maximum values of
@@ -2517,22 +2002,15 @@ GLFWAPI int glfwGetMouseButton(GLFWwindow* window, int button);
  *  `floor` function.  Casting directly to an integer type works for positive
  *  coordinates, but fails for negative ones.
  *
- *  Any or all of the position arguments may be `NULL`.  If an error occurs, all
- *  non-`NULL` position arguments will be set to zero.
- *
  *  @param[in] window The desired window.
  *  @param[out] xpos Where to store the cursor x-coordinate, relative to the
  *  left edge of the client area, or `NULL`.
  *  @param[out] ypos Where to store the cursor y-coordinate, relative to the to
  *  top edge of the client area, or `NULL`.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note This function may only be called from the main thread.
  *
- *  @sa @ref cursor_pos
  *  @sa glfwSetCursorPos
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwGetMousePos`.
  *
  *  @ingroup input
  */
@@ -2543,16 +2021,11 @@ GLFWAPI void glfwGetCursorPos(GLFWwindow* window, double* xpos, double* ypos);
  *
  *  This function sets the position, in screen coordinates, of the cursor
  *  relative to the upper-left corner of the client area of the specified
- *  window.  The window must have input focus.  If the window does not have
- *  input focus when this function is called, it fails silently.
+ *  window.  The window must be focused.  If the window does not have focus when
+ *  this function is called, it fails silently.
  *
- *  __Do not use this function__ to implement things like camera controls.  GLFW
- *  already provides the `GLFW_CURSOR_DISABLED` cursor mode that hides the
- *  cursor, transparently re-centers it and provides unconstrained cursor
- *  motion.  See @ref glfwSetInputMode for more information.
- *
- *  If the cursor mode is `GLFW_CURSOR_DISABLED` then the cursor position is
- *  unconstrained and limited only by the minimum and maximum values of
+ *  If the cursor is disabled (with `GLFW_CURSOR_DISABLED`) then the cursor
+ *  position is unbounded and limited only by the minimum and maximum values of
  *  a `double`.
  *
  *  @param[in] window The desired window.
@@ -2561,130 +2034,51 @@ GLFWAPI void glfwGetCursorPos(GLFWwindow* window, double* xpos, double* ypos);
  *  @param[in] ypos The desired y-coordinate, relative to the top edge of the
  *  client area.
  *
- *  @remarks __X11:__ Due to the asynchronous nature of a modern X desktop, it
- *  may take a moment for the window focus event to arrive.  This means you will
- *  not be able to set the cursor position directly after window creation.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref cursor_pos
  *  @sa glfwGetCursorPos
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwSetMousePos`.
  *
  *  @ingroup input
  */
 GLFWAPI void glfwSetCursorPos(GLFWwindow* window, double xpos, double ypos);
 
-/*! @brief Creates a custom cursor.
- *
- *  Creates a new custom cursor image that can be set for a window with @ref
- *  glfwSetCursor.  The cursor can be destroyed with @ref glfwDestroyCursor.
- *  Any remaining cursors are destroyed by @ref glfwTerminate.
- *
- *  The pixels are 32-bit little-endian RGBA, i.e. eight bits per channel.  They
- *  are arranged canonically as packed sequential rows, starting from the
- *  top-left corner.
- *
- *  The cursor hotspot is specified in pixels, relative to the upper-left corner
- *  of the cursor image.  Like all other coordinate systems in GLFW, the X-axis
- *  points to the right and the Y-axis points down.
+/*! @brief Creates a cursor.
  *
  *  @param[in] image The desired cursor image.
- *  @param[in] xhot The desired x-coordinate, in pixels, of the cursor hotspot.
- *  @param[in] yhot The desired y-coordinate, in pixels, of the cursor hotspot.
+ *  @param[in] xhot The desired x-coordinate of the cursor hotspot.
+ *  @param[in] yhot The desired y-coordinate of the cursor hotspot.
  *
- *  @return The handle of the created cursor, or `NULL` if an
- *  [error](@ref error_handling) occurred.
+ *  @return A new cursor ready to use or `NULL` if an error occurred. If you
+ *  don't destroy the cursor by calling `glfwDestroyCursor` it will be destroyed
+ *  automatically by `GLFW` on termination.
  *
- *  @par Pointer Lifetime
- *  The specified image data is copied before this function returns.
- *
- *  @par Reentrancy
- *  This function may not be called from a callback.
- *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref cursor_object
- *  @sa glfwDestroyCursor
- *  @sa glfwCreateStandardCursor
- *
- *  @since Added in GLFW 3.1.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
 GLFWAPI GLFWcursor* glfwCreateCursor(const GLFWimage* image, int xhot, int yhot);
 
-/*! @brief Creates a cursor with a standard shape.
- *
- *  Returns a cursor with a [standard shape](@ref shapes), that can be set for
- *  a window with @ref glfwSetCursor.
- *
- *  @param[in] shape One of the [standard shapes](@ref shapes).
- *
- *  @return A new cursor ready to use or `NULL` if an
- *  [error](@ref error_handling) occurred.
- *
- *  @par Reentrancy
- *  This function may not be called from a callback.
- *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref cursor_object
- *  @sa glfwCreateCursor
- *
- *  @since Added in GLFW 3.1.
- *
- *  @ingroup input
- */
-GLFWAPI GLFWcursor* glfwCreateStandardCursor(int shape);
-
 /*! @brief Destroys a cursor.
  *
- *  This function destroys a cursor previously created with @ref
- *  glfwCreateCursor.  Any remaining cursors will be destroyed by @ref
- *  glfwTerminate.
+ *  This function destroys a cursor previously created by a call to
+ *  `glfwCreateCursor`. `GLFW` will destroy all cursors automatically on
+ *  termination.
  *
- *  @param[in] cursor The cursor object to destroy.
+ *  @param[in] cursor The cursor to destroy.
  *
- *  @par Reentrancy
- *  This function may not be called from a callback.
- *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref cursor_object
- *  @sa glfwCreateCursor
- *
- *  @since Added in GLFW 3.1.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
 GLFWAPI void glfwDestroyCursor(GLFWcursor* cursor);
 
-/*! @brief Sets the cursor for the window.
- *
- *  This function sets the cursor image to be used when the cursor is over the
- *  client area of the specified window.  The set cursor will only be visible
- *  when the [cursor mode](@ref cursor_mode) of the window is
- *  `GLFW_CURSOR_NORMAL`.
- *
- *  On some platforms, the set cursor may not be visible unless the window also
- *  has input focus.
+/*! @brief Sets the cursor for a given window.
  *
  *  @param[in] window The window to set the cursor for.
- *  @param[in] cursor The cursor to set, or `NULL` to switch back to the default
- *  arrow cursor.
+ *  @param[in] cursor The cursor to change to, or `NULL` to switch back to the
+ *  default system cursor.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref cursor_object
- *
- *  @since Added in GLFW 3.1.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
@@ -2692,7 +2086,7 @@ GLFWAPI void glfwSetCursor(GLFWwindow* window, GLFWcursor* cursor);
 
 /*! @brief Sets the key callback.
  *
- *  This function sets the key callback of the specified window, which is called
+ *  This function sets the key callback of the specific window, which is called
  *  when a key is pressed, repeated or released.
  *
  *  The key functions deal with physical keys, with layout independent
@@ -2700,16 +2094,16 @@ GLFWAPI void glfwSetCursor(GLFWwindow* window, GLFWcursor* cursor);
  *  layout.  If you want to input text, use the
  *  [character callback](@ref glfwSetCharCallback) instead.
  *
- *  When a window loses input focus, it will generate synthetic key release
- *  events for all pressed keys.  You can tell these events from user-generated
- *  events by the fact that the synthetic ones are generated after the focus
- *  loss event has been processed, i.e. after the
- *  [window focus callback](@ref glfwSetWindowFocusCallback) has been called.
+ *  When a window loses focus, it will generate synthetic key release events
+ *  for all pressed keys.  You can tell these events from user-generated events
+ *  by the fact that the synthetic ones are generated after the window has lost
+ *  focus, i.e. `GLFW_FOCUSED` will be false and the focus callback will have
+ *  already been called.
  *
  *  The scancode of a key is specific to that platform or sometimes even to that
  *  machine.  Scancodes are intended to allow users to bind keys that don't have
  *  a GLFW key token.  Such keys have `key` set to `GLFW_KEY_UNKNOWN`, their
- *  state is not saved and so it cannot be queried with @ref glfwGetKey.
+ *  state is not saved and so it cannot be retrieved with @ref glfwGetKey.
  *
  *  Sometimes GLFW needs to generate synthetic key events, in which case the
  *  scancode may be zero.
@@ -2717,18 +2111,10 @@ GLFWAPI void glfwSetCursor(GLFWwindow* window, GLFWcursor* cursor);
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new key callback, or `NULL` to remove the currently
  *  set callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref input_key
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.  Updated callback signature.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
@@ -2736,56 +2122,11 @@ GLFWAPI GLFWkeyfun glfwSetKeyCallback(GLFWwindow* window, GLFWkeyfun cbfun);
 
 /*! @brief Sets the Unicode character callback.
  *
- *  This function sets the character callback of the specified window, which is
+ *  This function sets the character callback of the specific window, which is
  *  called when a Unicode character is input.
  *
- *  The character callback is intended for Unicode text input.  As it deals with
- *  characters, it is keyboard layout dependent, whereas the
- *  [key callback](@ref glfwSetKeyCallback) is not.  Characters do not map 1:1
- *  to physical keys, as a key may produce zero, one or more characters.  If you
- *  want to know whether a specific physical key was pressed or released, see
- *  the key callback instead.
- *
- *  The character callback behaves as system text input normally does and will
- *  not be called if modifier keys are held down that would prevent normal text
- *  input on that platform, for example a Super (Command) key on OS X or Alt key
- *  on Windows.  There is a
- *  [character with modifiers callback](@ref glfwSetCharModsCallback) that
- *  receives these events.
- *
- *  @param[in] window The window whose callback to set.
- *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
- *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
- *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref input_char
- *
- *  @since Added in GLFW 2.4.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.  Updated callback signature.
- *
- *  @ingroup input
- */
-GLFWAPI GLFWcharfun glfwSetCharCallback(GLFWwindow* window, GLFWcharfun cbfun);
-
-/*! @brief Sets the Unicode character with modifiers callback.
- *
- *  This function sets the character with modifiers callback of the specified
- *  window, which is called when a Unicode character is input regardless of what
- *  modifier keys are used.
- *
- *  The character with modifiers callback is intended for implementing custom
- *  Unicode character input.  For regular Unicode text input, see the
- *  [character callback](@ref glfwSetCharCallback).  Like the character
- *  callback, the character with modifiers callback deals with characters and is
- *  keyboard layout dependent.  Characters do not map 1:1 to physical keys, as
- *  a key may produce zero, one or more characters.  If you want to know whether
- *  a specific physical key was pressed or released, see the
+ *  The character callback is intended for text input.  If you want to know
+ *  whether a specific key was pressed or released, use the
  *  [key callback](@ref glfwSetKeyCallback) instead.
  *
  *  @param[in] window The window whose callback to set.
@@ -2794,43 +2135,30 @@ GLFWAPI GLFWcharfun glfwSetCharCallback(GLFWwindow* window, GLFWcharfun cbfun);
  *  @return The previously set callback, or `NULL` if no callback was set or an
  *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref input_char
- *
- *  @since Added in GLFW 3.1.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
-GLFWAPI GLFWcharmodsfun glfwSetCharModsCallback(GLFWwindow* window, GLFWcharmodsfun cbfun);
+GLFWAPI GLFWcharfun glfwSetCharCallback(GLFWwindow* window, GLFWcharfun cbfun);
 
 /*! @brief Sets the mouse button callback.
  *
  *  This function sets the mouse button callback of the specified window, which
  *  is called when a mouse button is pressed or released.
  *
- *  When a window loses input focus, it will generate synthetic mouse button
- *  release events for all pressed mouse buttons.  You can tell these events
- *  from user-generated events by the fact that the synthetic ones are generated
- *  after the focus loss event has been processed, i.e. after the
- *  [window focus callback](@ref glfwSetWindowFocusCallback) has been called.
+ *  When a window loses focus, it will generate synthetic mouse button release
+ *  events for all pressed mouse buttons.  You can tell these events from
+ *  user-generated events by the fact that the synthetic ones are generated
+ *  after the window has lost focus, i.e. `GLFW_FOCUSED` will be false and the
+ *  focus callback will have already been called.
  *
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref input_mouse_button
- *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.  Updated callback signature.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
@@ -2846,15 +2174,10 @@ GLFWAPI GLFWmousebuttonfun glfwSetMouseButtonCallback(GLFWwindow* window, GLFWmo
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref cursor_pos
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwSetMousePosCallback`.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
@@ -2869,15 +2192,10 @@ GLFWAPI GLFWcursorposfun glfwSetCursorPosCallback(GLFWwindow* window, GLFWcursor
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new callback, or `NULL` to remove the currently set
  *  callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref cursor_enter
- *
- *  @since Added in GLFW 3.0.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
@@ -2895,15 +2213,10 @@ GLFWAPI GLFWcursorenterfun glfwSetCursorEnterCallback(GLFWwindow* window, GLFWcu
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new scroll callback, or `NULL` to remove the currently
  *  set callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref scrolling
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwSetMouseWheelCallback`.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
@@ -2914,23 +2227,14 @@ GLFWAPI GLFWscrollfun glfwSetScrollCallback(GLFWwindow* window, GLFWscrollfun cb
  *  This function sets the file drop callback of the specified window, which is
  *  called when one or more dragged files are dropped on the window.
  *
- *  Because the path array and its strings may have been generated specifically
- *  for that event, they are not guaranteed to be valid after the callback has
- *  returned.  If you wish to use them after the callback returns, you need to
- *  make a deep copy.
  *
  *  @param[in] window The window whose callback to set.
  *  @param[in] cbfun The new file drop callback, or `NULL` to remove the
  *  currently set callback.
- *  @return The previously set callback, or `NULL` if no callback was set or the
- *  library had not been [initialized](@ref intro_init).
+ *  @return The previously set callback, or `NULL` if no callback was set or an
+ *  error occurred.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref path_drop
- *
- *  @since Added in GLFW 3.1.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
@@ -2940,15 +2244,10 @@ GLFWAPI GLFWdropfun glfwSetDropCallback(GLFWwindow* window, GLFWdropfun cbfun);
  *
  *  This function returns whether the specified joystick is present.
  *
- *  @param[in] joy The [joystick](@ref joysticks) to query.
+ *  @param[in] joy The joystick to query.
  *  @return `GL_TRUE` if the joystick is present, or `GL_FALSE` otherwise.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref joystick
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwGetJoystickParam`.
+ *  @note This function may only be called from the main thread.
  *
  *  @ingroup input
  */
@@ -2957,24 +2256,19 @@ GLFWAPI int glfwJoystickPresent(int joy);
 /*! @brief Returns the values of all axes of the specified joystick.
  *
  *  This function returns the values of all axes of the specified joystick.
- *  Each element in the array is a value between -1.0 and 1.0.
  *
- *  @param[in] joy The [joystick](@ref joysticks) to query.
- *  @param[out] count Where to store the number of axis values in the returned
- *  array.  This is set to zero if an error occurred.
+ *  @param[in] joy The joystick to query.
+ *  @param[out] count Where to store the size of the returned array.  This is
+ *  set to zero if an error occurred.
  *  @return An array of axis values, or `NULL` if the joystick is not present.
  *
- *  @par Pointer Lifetime
- *  The returned array is allocated and freed by GLFW.  You should not free it
- *  yourself.  It is valid until the specified joystick is disconnected, this
- *  function is called again for that joystick or the library is terminated.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note The returned array is allocated and freed by GLFW.  You should not
+ *  free it yourself.
  *
- *  @sa @ref joystick_axis
- *
- *  @since Added in GLFW 3.0.  Replaces `glfwGetJoystickPos`.
+ *  @note The returned array is valid only until the next call to @ref
+ *  glfwGetJoystickAxes for that joystick.
  *
  *  @ingroup input
  */
@@ -2983,27 +2277,19 @@ GLFWAPI const float* glfwGetJoystickAxes(int joy, int* count);
 /*! @brief Returns the state of all buttons of the specified joystick.
  *
  *  This function returns the state of all buttons of the specified joystick.
- *  Each element in the array is either `GLFW_PRESS` or `GLFW_RELEASE`.
  *
- *  @param[in] joy The [joystick](@ref joysticks) to query.
- *  @param[out] count Where to store the number of button states in the returned
- *  array.  This is set to zero if an error occurred.
+ *  @param[in] joy The joystick to query.
+ *  @param[out] count Where to store the size of the returned array.  This is
+ *  set to zero if an error occurred.
  *  @return An array of button states, or `NULL` if the joystick is not present.
  *
- *  @par Pointer Lifetime
- *  The returned array is allocated and freed by GLFW.  You should not free it
- *  yourself.  It is valid until the specified joystick is disconnected, this
- *  function is called again for that joystick or the library is terminated.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note The returned array is allocated and freed by GLFW.  You should not
+ *  free it yourself.
  *
- *  @sa @ref joystick_button
- *
- *  @since Added in GLFW 2.2.
- *
- *  @par
- *  __GLFW 3:__ Changed to return a dynamic array.
+ *  @note The returned array is valid only until the next call to @ref
+ *  glfwGetJoystickButtons for that joystick.
  *
  *  @ingroup input
  */
@@ -3012,24 +2298,18 @@ GLFWAPI const unsigned char* glfwGetJoystickButtons(int joy, int* count);
 /*! @brief Returns the name of the specified joystick.
  *
  *  This function returns the name, encoded as UTF-8, of the specified joystick.
- *  The returned string is allocated and freed by GLFW.  You should not free it
- *  yourself.
  *
- *  @param[in] joy The [joystick](@ref joysticks) to query.
+ *  @param[in] joy The joystick to query.
  *  @return The UTF-8 encoded name of the joystick, or `NULL` if the joystick
  *  is not present.
  *
- *  @par Pointer Lifetime
- *  The returned string is allocated and freed by GLFW.  You should not free it
- *  yourself.  It is valid until the specified joystick is disconnected, this
- *  function is called again for that joystick or the library is terminated.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note The returned string is allocated and freed by GLFW.  You should not
+ *  free it yourself.
  *
- *  @sa @ref joystick_name
- *
- *  @since Added in GLFW 3.0.
+ *  @note The returned string is valid only until the next call to @ref
+ *  glfwGetJoystickName for that joystick.
  *
  *  @ingroup input
  */
@@ -3038,50 +2318,40 @@ GLFWAPI const char* glfwGetJoystickName(int joy);
 /*! @brief Sets the clipboard to the specified string.
  *
  *  This function sets the system clipboard to the specified, UTF-8 encoded
- *  string.
+ *  string.  The string is copied before returning, so you don't have to retain
+ *  it afterwards.
  *
  *  @param[in] window The window that will own the clipboard contents.
  *  @param[in] string A UTF-8 encoded string.
  *
- *  @par Pointer Lifetime
- *  The specified string is copied before this function returns.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
- *
- *  @sa @ref clipboard
  *  @sa glfwGetClipboardString
  *
- *  @since Added in GLFW 3.0.
- *
- *  @ingroup input
+ *  @ingroup clipboard
  */
 GLFWAPI void glfwSetClipboardString(GLFWwindow* window, const char* string);
 
-/*! @brief Returns the contents of the clipboard as a string.
+/*! @brief Retrieves the contents of the clipboard as a string.
  *
  *  This function returns the contents of the system clipboard, if it contains
  *  or is convertible to a UTF-8 encoded string.
  *
  *  @param[in] window The window that will request the clipboard contents.
  *  @return The contents of the clipboard as a UTF-8 encoded string, or `NULL`
- *  if an [error](@ref error_handling) occurred.
+ *  if an error occurred.
  *
- *  @par Pointer Lifetime
- *  The returned string is allocated and freed by GLFW.  You should not free it
- *  yourself.  It is valid until the next call to @ref
- *  glfwGetClipboardString or @ref glfwSetClipboardString, or until the library
- *  is terminated.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note The returned string is allocated and freed by GLFW.  You should not
+ *  free it yourself.
  *
- *  @sa @ref clipboard
+ *  @note The returned string is valid only until the next call to @ref
+ *  glfwGetClipboardString or @ref glfwSetClipboardString.
+ *
  *  @sa glfwSetClipboardString
  *
- *  @since Added in GLFW 3.0.
- *
- *  @ingroup input
+ *  @ingroup clipboard
  */
 GLFWAPI const char* glfwGetClipboardString(GLFWwindow* window);
 
@@ -3091,70 +2361,48 @@ GLFWAPI const char* glfwGetClipboardString(GLFWwindow* window);
  *  been set using @ref glfwSetTime, the timer measures time elapsed since GLFW
  *  was initialized.
  *
- *  The resolution of the timer is system dependent, but is usually on the order
- *  of a few micro- or nanoseconds.  It uses the highest-resolution monotonic
- *  time source on each supported platform.
+ *  @return The current value, in seconds, or zero if an error occurred.
  *
- *  @return The current value, in seconds, or zero if an
- *  [error](@ref error_handling) occurred.
+ *  @remarks This function may be called from any thread.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.  Access is not synchronized.
+ *  @note The resolution of the timer is system dependent, but is usually on the
+ *  order of a few micro- or nanoseconds.  It uses the highest-resolution
+ *  monotonic time source on each supported platform.
  *
- *  @sa @ref time
- *
- *  @since Added in GLFW 1.0.
- *
- *  @ingroup input
+ *  @ingroup time
  */
 GLFWAPI double glfwGetTime(void);
 
 /*! @brief Sets the GLFW timer.
  *
  *  This function sets the value of the GLFW timer.  It then continues to count
- *  up from that value.  The value must be a positive finite number less than
- *  or equal to 18446744073.0, which is approximately 584.5 years.
+ *  up from that value.
  *
  *  @param[in] time The new value, in seconds.
  *
- *  @remarks The upper limit of the timer is calculated as
- *  floor((2<sup>64</sup> - 1) / 10<sup>9</sup>) and is due to implementations
- *  storing nanoseconds in 64 bits.  The limit may be increased in the future.
+ *  @note This function may only be called from the main thread.
  *
- *  @par Thread Safety
- *  This function may only be called from the main thread.
+ *  @note The resolution of the timer is system dependent, but is usually on the
+ *  order of a few micro- or nanoseconds.  It uses the highest-resolution
+ *  monotonic time source on each supported platform.
  *
- *  @sa @ref time
- *
- *  @since Added in GLFW 2.2.
- *
- *  @ingroup input
+ *  @ingroup time
  */
 GLFWAPI void glfwSetTime(double time);
 
 /*! @brief Makes the context of the specified window current for the calling
  *  thread.
  *
- *  This function makes the OpenGL or OpenGL ES context of the specified window
- *  current on the calling thread.  A context can only be made current on
- *  a single thread at a time and each thread can have only a single current
- *  context at a time.
- *
- *  By default, making a context non-current implicitly forces a pipeline flush.
- *  On machines that support `GL_KHR_context_flush_control`, you can control
- *  whether a context performs this flush by setting the
- *  [GLFW_CONTEXT_RELEASE_BEHAVIOR](@ref window_hints_ctx) window hint.
+ *  This function makes the context of the specified window current on the
+ *  calling thread.  A context can only be made current on a single thread at
+ *  a time and each thread can have only a single current context at a time.
  *
  *  @param[in] window The window whose context to make current, or `NULL` to
  *  detach the current context.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.
+ *  @remarks This function may be called from any thread.
  *
- *  @sa @ref context_current
  *  @sa glfwGetCurrentContext
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup context
  */
@@ -3162,19 +2410,15 @@ GLFWAPI void glfwMakeContextCurrent(GLFWwindow* window);
 
 /*! @brief Returns the window whose context is current on the calling thread.
  *
- *  This function returns the window whose OpenGL or OpenGL ES context is
- *  current on the calling thread.
+ *  This function returns the window whose context is current on the calling
+ *  thread.
  *
  *  @return The window whose context is current, or `NULL` if no window's
  *  context is current.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.
+ *  @remarks This function may be called from any thread.
  *
- *  @sa @ref context_current
  *  @sa glfwMakeContextCurrent
- *
- *  @since Added in GLFW 3.0.
  *
  *  @ingroup context
  */
@@ -3188,28 +2432,24 @@ GLFWAPI GLFWwindow* glfwGetCurrentContext(void);
  *
  *  @param[in] window The window whose buffers to swap.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.
+ *  @par New in GLFW 3
+ *  This function no longer calls @ref glfwPollEvents.  You need to call it or
+ *  @ref glfwWaitEvents yourself.
  *
- *  @sa @ref buffer_swap
+ *  @remarks This function may be called from any thread.
+ *
  *  @sa glfwSwapInterval
  *
- *  @since Added in GLFW 1.0.
- *
- *  @par
- *  __GLFW 3:__ Added window handle parameter.
- *
- *  @ingroup window
+ *  @ingroup context
  */
 GLFWAPI void glfwSwapBuffers(GLFWwindow* window);
 
 /*! @brief Sets the swap interval for the current context.
  *
  *  This function sets the swap interval for the current context, i.e. the
- *  number of screen updates to wait from the time @ref glfwSwapBuffers was
- *  called before swapping the buffers and returning.  This is sometimes called
- *  _vertical synchronization_, _vertical retrace synchronization_ or just
- *  _vsync_.
+ *  number of screen updates to wait before swapping the buffers of a window and
+ *  returning from @ref glfwSwapBuffers.  This is sometimes called 'vertical
+ *  synchronization', 'vertical retrace synchronization' or 'vsync'.
  *
  *  Contexts that support either of the `WGL_EXT_swap_control_tear` and
  *  `GLX_EXT_swap_control_tear` extensions also accept negative swap intervals,
@@ -3218,28 +2458,21 @@ GLFWAPI void glfwSwapBuffers(GLFWwindow* window);
  *  glfwExtensionSupported.  For more information about swap tearing, see the
  *  extension specifications.
  *
- *  A context must be current on the calling thread.  Calling this function
- *  without a current context will cause a @ref GLFW_NO_CURRENT_CONTEXT error.
- *
  *  @param[in] interval The minimum number of screen updates to wait for
  *  until the buffers are swapped by @ref glfwSwapBuffers.
  *
- *  @remarks This function is not called during context creation, leaving the
- *  swap interval set to whatever is the default on that platform.  This is done
+ *  @remarks This function may be called from any thread.
+ *
+ *  @note This function is not called during window creation, leaving the swap
+ *  interval set to whatever is the default on that platform.  This is done
  *  because some swap interval extensions used by GLFW do not allow the swap
  *  interval to be reset to zero once it has been set to a non-zero value.
  *
- *  @remarks Some GPU drivers do not honor the requested swap interval, either
- *  because of a user setting that overrides the application's request or due to
- *  bugs in the driver.
+ *  @note Some GPU drivers do not honor the requested swap interval, either
+ *  because of user settings that override the request or due to bugs in the
+ *  driver.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.
- *
- *  @sa @ref buffer_swap
  *  @sa glfwSwapBuffers
- *
- *  @since Added in GLFW 1.0.
  *
  *  @ingroup context
  */
@@ -3248,28 +2481,19 @@ GLFWAPI void glfwSwapInterval(int interval);
 /*! @brief Returns whether the specified extension is available.
  *
  *  This function returns whether the specified
- *  [client API extension](@ref context_glext) is supported by the current
- *  OpenGL or OpenGL ES context.  It searches both for OpenGL and OpenGL ES
- *  extension and platform-specific context creation API extensions.
- *
- *  A context must be current on the calling thread.  Calling this function
- *  without a current context will cause a @ref GLFW_NO_CURRENT_CONTEXT error.
- *
- *  As this functions retrieves and searches one or more extension strings each
- *  call, it is recommended that you cache its results if it is going to be used
- *  frequently.  The extension strings will not change during the lifetime of
- *  a context, so there is no danger in doing this.
+ *  [OpenGL or context creation API extension](@ref context_glext) is supported
+ *  by the current context.  For example, on Windows both the OpenGL and WGL
+ *  extension strings are checked.
  *
  *  @param[in] extension The ASCII encoded name of the extension.
  *  @return `GL_TRUE` if the extension is available, or `GL_FALSE` otherwise.
  *
- *  @par Thread Safety
- *  This function may be called from any thread.
+ *  @remarks This function may be called from any thread.
  *
- *  @sa @ref context_glext
- *  @sa glfwGetProcAddress
- *
- *  @since Added in GLFW 1.0.
+ *  @note As this functions searches one or more extension strings on each call,
+ *  it is recommended that you cache its results if it's going to be used
+ *  frequently.  The extension strings will not change during the lifetime of
+ *  a context, so there is no danger in doing this.
  *
  *  @ingroup context
  */
@@ -3279,34 +2503,18 @@ GLFWAPI int glfwExtensionSupported(const char* extension);
  *  context.
  *
  *  This function returns the address of the specified
- *  [core or extension function](@ref context_glext), if it is supported
+ *  [client API or extension function](@ref context_glext), if it is supported
  *  by the current context.
- *
- *  A context must be current on the calling thread.  Calling this function
- *  without a current context will cause a @ref GLFW_NO_CURRENT_CONTEXT error.
  *
  *  @param[in] procname The ASCII encoded name of the function.
  *  @return The address of the function, or `NULL` if the function is
- *  unavailable or an [error](@ref error_handling) occurred.
+ *  unavailable.
  *
- *  @remarks The addresses of a given function is not guaranteed to be the same
- *  between contexts.
+ *  @remarks This function may be called from any thread.
  *
- *  @remarks This function may return a non-`NULL` address despite the
- *  associated version or extension not being available.  Always check the
- *  context version or extension string presence first.
- *
- *  @par Pointer Lifetime
- *  The returned function pointer is valid until the context is destroyed or the
- *  library is terminated.
- *
- *  @par Thread Safety
- *  This function may be called from any thread.
- *
- *  @sa @ref context_glext
- *  @sa glfwExtensionSupported
- *
- *  @since Added in GLFW 1.0.
+ *  @note The addresses of these functions are not guaranteed to be the same for
+ *  all contexts, especially if they use different client APIs or even different
+ *  context creation hints.
  *
  *  @ingroup context
  */
