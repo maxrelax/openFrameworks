@@ -67,6 +67,15 @@
     <Filter Include="libs\kiss\src">
       <UniqueIdentifier>{7d7e3bca-1758-4548-83af-9057928e9887}</UniqueIdentifier>
     </Filter>
+    <Filter Include="libs\utf8cpp">
+      <UniqueIdentifier>{cbd3f737-01cc-413b-a51f-70c0ba9bfc8a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\utf8cpp\include">
+      <UniqueIdentifier>{680ca8e7-e187-46d9-a37a-90e0023aa808}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\utf8cpp\include\utf8">
+      <UniqueIdentifier>{f3023d8c-ff0f-41e6-bdc6-af3aa5ac675f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\openFrameworks\ofMain.h">
@@ -365,6 +374,18 @@
     </ClInclude>
     <ClInclude Include="..\..\..\audiodecoder\libs\audiodecoder\include\audiodecodermediafoundation.h">
       <Filter>libs\openFrameworks\audiodecoder\libs\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\utf8cpp\include\utf8\core.h">
+      <Filter>libs\utf8cpp\include\utf8</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\utf8cpp\include\utf8\unchecked.h">
+      <Filter>libs\utf8cpp\include\utf8</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\utf8cpp\include\utf8\checked.h">
+      <Filter>libs\utf8cpp\include\utf8</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\utf8cpp\include\utf8.h">
+      <Filter>libs\utf8cpp\include</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

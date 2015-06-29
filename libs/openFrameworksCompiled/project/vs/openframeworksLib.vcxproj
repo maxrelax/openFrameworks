@@ -96,7 +96,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\..\openFrameworks;..\..\..\openFrameworks\graphics;..\..\..\openFrameworks\app;..\..\..\openFrameworks\sound;..\..\..\openFrameworks\utils;..\..\..\openFrameworks\communication;..\..\..\openFrameworks\video;..\..\..\openFrameworks\video\wmfpresenter;..\..\..\openFrameworks\video\wmfpresenter\common;..\..\..\openFrameworks\types;..\..\..\openFrameworks\math;..\..\..\openFrameworks\3d;..\..\..\openFrameworks\gl;..\..\..\openFrameworks\events;..\..\..\freeglut\include;..\..\..\rtAudio\include;..\..\..\freetype\include;..\..\..\freetype\include\freetype2;..\..\..\freeImage\include;..\..\..\openal\include;..\..\..\sndfile\include;..\..\..\videoInput\include;..\..\..\kiss\include;..\..\..\kiss\src;..\..\..\glew\include;..\..\..\glu\include;..\..\..\tess2\include;..\..\..\poco\include;..\..\..\glfw\include;..\..\..\gl\include;..\..\..\openssl\include;..\..\..\audiodecoder\include;..\..\..\audiodecoder\libs;..\..\..\audiodecoder\libs\audiodecoder\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\openFrameworks;..\..\..\openFrameworks\graphics;..\..\..\openFrameworks\app;..\..\..\openFrameworks\sound;..\..\..\openFrameworks\utils;..\..\..\openFrameworks\communication;..\..\..\openFrameworks\video;..\..\..\openFrameworks\video\wmfpresenter;..\..\..\openFrameworks\video\wmfpresenter\common;..\..\..\openFrameworks\types;..\..\..\openFrameworks\math;..\..\..\openFrameworks\3d;..\..\..\openFrameworks\gl;..\..\..\openFrameworks\events;..\..\..\freeglut\include;..\..\..\rtAudio\include;..\..\..\freetype\include;..\..\..\freetype\include\freetype2;..\..\..\freeImage\include;..\..\..\openal\include;..\..\..\sndfile\include;..\..\..\videoInput\include;..\..\..\kiss\include;..\..\..\kiss\src;..\..\..\glew\include;..\..\..\glu\include;..\..\..\tess2\include;..\..\..\poco\include;..\..\..\glfw\include;..\..\..\gl\include;..\..\..\openssl\include;..\..\..\utf8cpp\include\utf8;..\..\..\utf8cpp\include;..\..\..\audiodecoder\include;..\..\..\audiodecoder\libs;..\..\..\audiodecoder\libs\audiodecoder\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;POCO_STATIC;CAIRO_WIN32_STATIC_BUILD;DISABLE_SOME_FLOATING_POINT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -235,6 +235,10 @@
     <ClInclude Include="..\..\..\openFrameworks\video\wmfpresenter\PresentEngine.h" />
     <ClInclude Include="..\..\..\openFrameworks\video\wmfpresenter\Presenter.h" />
     <ClInclude Include="..\..\..\openFrameworks\video\wmfpresenter\scheduler.h" />
+    <ClInclude Include="..\..\..\utf8cpp\include\utf8.h" />
+    <ClInclude Include="..\..\..\utf8cpp\include\utf8\checked.h" />
+    <ClInclude Include="..\..\..\utf8cpp\include\utf8\core.h" />
+    <ClInclude Include="..\..\..\utf8cpp\include\utf8\unchecked.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\audiodecoder\libs\audiodecoder\src\audiodecoderbase.cpp" />
