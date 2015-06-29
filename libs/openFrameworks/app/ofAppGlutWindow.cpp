@@ -8,7 +8,7 @@
 #include "ofGLProgrammableRenderer.h"
 
 #ifdef TARGET_WIN32
-	#define GLUT_BUILDING_LIB
+
 	#include "glut.h"
 #endif
 #ifdef TARGET_OSX

@@ -6,7 +6,7 @@
 #include "ofLog.h"
 
 #ifdef TARGET_WIN32	 // for ofLaunchBrowser
-	#include <shellapi.h>
+    #include <shellapi.h>
 #endif
 
 #include "Poco/Path.h"
@@ -29,7 +29,7 @@ unsigned int ofGetUnixTime();
 unsigned long long ofGetSystemTime( );			// system time in milliseconds;
 unsigned long long ofGetSystemTimeMicros( );			// system time in microseconds;
 
-		//returns 
+        //returns 
 string ofGetTimestampString();
 string ofGetTimestampString(string timestampFormat);
 
@@ -47,31 +47,31 @@ string 	ofToDataPath(string path, bool absolute=false);
 
 template<class T>
 void ofRandomize(vector<T>& values) {
-	random_shuffle(values.begin(), values.end());
+    random_shuffle(values.begin(), values.end());
 }
 
 template<class T, class BoolFunction>
 void ofRemove(vector<T>& values, BoolFunction shouldErase) {
-	values.erase(remove_if(values.begin(), values.end(), shouldErase), values.end());
+    values.erase(remove_if(values.begin(), values.end(), shouldErase), values.end());
 }
 
 template<class T>
 void ofSort(vector<T>& values) {
-	sort(values.begin(), values.end());
+    sort(values.begin(), values.end());
 }
 template<class T, class BoolFunction>
 void ofSort(vector<T>& values, BoolFunction compare) {
-	sort(values.begin(), values.end(), compare);
+    sort(values.begin(), values.end(), compare);
 }
 
 template <class T>
 unsigned int ofFind(const vector<T>& values, const T& target) {
-	return distance(values.begin(), find(values.begin(), values.end(), target));
+    return distance(values.begin(), find(values.begin(), values.end(), target));
 }
 
 template <class T>
 bool ofContains(const vector<T>& values, const T& target) {
-	return ofFind(values, target) != values.size();
+    return ofFind(values, target) != values.size();
 }
 
 void ofSetWorkingDirectoryToDefault();
@@ -82,53 +82,53 @@ void ofSetDataPathRoot( string root );
 
 template <class T>
 string ofToString(const T& value){
-	ostringstream out;
-	out << value;
-	return out.str();
+    ostringstream out;
+    out << value;
+    return out.str();
 }
 
 /// like sprintf "%4f" format, in this example precision=4
 template <class T>
 string ofToString(const T& value, int precision){
-	ostringstream out;
-	out << fixed << setprecision(precision) << value;
-	return out.str();
+    ostringstream out;
+    out << fixed << setprecision(precision) << value;
+    return out.str();
 }
 
 /// like sprintf "% 4d" or "% 4f" format, in this example width=4, fill=' '
 template <class T>
 string ofToString(const T& value, int width, char fill ){
-	ostringstream out;
-	out << fixed << setfill(fill) << setw(width) << value;
-	return out.str();
+    ostringstream out;
+    out << fixed << setfill(fill) << setw(width) << value;
+    return out.str();
 }
 
 /// like sprintf "%04.2d" or "%04.2f" format, in this example precision=2, width=4, fill='0'
 template <class T>
 string ofToString(const T& value, int precision, int width, char fill ){
-	ostringstream out;
-	out << fixed << setfill(fill) << setw(width) << setprecision(precision) << value;
-	return out.str();
+    ostringstream out;
+    out << fixed << setfill(fill) << setw(width) << setprecision(precision) << value;
+    return out.str();
 }
 
 template<class T>
 string ofToString(const vector<T>& values) {
-	stringstream out;
-	int n = values.size();
-	out << "{";
-	if(n > 0) {
-		for(int i = 0; i < n - 1; i++) {
-			out << values[i] << ", ";
-		}
-		out << values[n - 1];
-	}
-	out << "}";
-	return out.str();
+    stringstream out;
+    int n = values.size();
+    out << "{";
+    if(n > 0) {
+        for(int i = 0; i < n - 1; i++) {
+            out << values[i] << ", ";
+        }
+        out << values[n - 1];
+    }
+    out << "}";
+    return out.str();
 }
 
 template<class T>
 T ofFromString(const string & value){
-	T data;
+    T data;
     stringstream ss;
     ss << value;
     ss >> data;
@@ -143,17 +143,17 @@ const char * ofFromString(const string & value);
 
 template <class T>
 string ofToHex(const T& value) {
-	ostringstream out;
-	// pretend that the value is a bunch of bytes
-	unsigned char* valuePtr = (unsigned char*) &value;
-	// the number of bytes is determined by the datatype
-	int numBytes = sizeof(T);
-	// the bytes are stored backwards (least significant first)
-	for(int i = numBytes - 1; i >= 0; i--) {
-		// print each byte out as a 2-character wide hex value
-		out << setfill('0') << setw(2) << hex << (int) valuePtr[i];
-	}
-	return out.str();
+    ostringstream out;
+    // pretend that the value is a bunch of bytes
+    unsigned char* valuePtr = (unsigned char*) &value;
+    // the number of bytes is determined by the datatype
+    int numBytes = sizeof(T);
+    // the bytes are stored backwards (least significant first)
+    for(int i = numBytes - 1; i >= 0; i--) {
+        // print each byte out as a 2-character wide hex value
+        out << setfill('0') << setw(2) << hex << (int) valuePtr[i];
+    }
+    return out.str();
 }
 template <>
 string ofToHex(const string& value);
@@ -172,16 +172,16 @@ bool ofToBool(const string& boolString);
 
 template <class T>
 string ofToBinary(const T& value) {
-	ostringstream out;
-	const char* data = (const char*) &value;
-	// the number of bytes is determined by the datatype
-	int numBytes = sizeof(T);
-	// the bytes are stored backwards (least significant first)
-	for(int i = numBytes - 1; i >= 0; i--) {
-		bitset<8> cur(data[i]);
-		out << cur;
-	}
-	return out.str();
+    ostringstream out;
+    const char* data = (const char*) &value;
+    // the number of bytes is determined by the datatype
+    int numBytes = sizeof(T);
+    // the bytes are stored backwards (least significant first)
+    for(int i = numBytes - 1; i >= 0; i--) {
+        bitset<8> cur(data[i]);
+        out << cur;
+    }
+    return out.str();
 }
 template <>
 string ofToBinary(const string& value);

@@ -336,6 +336,7 @@ void ofUpdateBitmapCharacterTexture(){
 }
 #endif
 
+
 static ofPixels myLetterPixels;
 static float widthTex = 8.0f/256.0f;
 static float heightTex = 14.0f/256.0f;
@@ -530,6 +531,170 @@ ofRectangle ofBitmapStringGetBoundingBox(const string & text, int x, int y){
 	ofVec2f max(numeric_limits<float>::min(),numeric_limits<float>::min());
 	ofVec2f min(numeric_limits<float>::max(),numeric_limits<float>::max());
 	for(int i=0;i< mesh.getNumVertices(); i++){
+		const ofVec3f & p = mesh.getVertex(i);
+		if(p.x<min.x) min.x = p.x;
+		if(p.y<min.y) min.y = p.y;
+		if(p.x>max.x) max.x = p.x;
+		if(p.y>max.y) max.y = p.y;
+	}
+	return ofRectangle(min.x,min.y,max.x-min.x,max.y-min.y);
+}
+
+//static const float widthTex = 8.0f/256.0f;
+//static const float heightTex = 14.0f/256.0f;
+ofPixels ofBitmapFont::pixels;
+
+void ofBitmapFont::init(){
+	if(pixels.isAllocated()) return;
+	pixels.allocate(16*16, 16*16, OF_PIXELS_MONO); // letter size:8x14pixels, texture size:16x8letters, gl_r: 1bytes/1pixel
+	pixels.set(0);
+	for (int i = 0; i < 256; i++) {
+		const unsigned char * face = bmpChar_8x13_Map[i];
+		for (int j = 1; j < 15; j++){
+			for (int k = 0; k < 8; k++){
+				if ( ((face[15-j] << k) & (128)) > 0 ){
+					pixels[(((int)(i/16))*16*16*16+(i%16)*16 + (j-1)*16*16 + k)*2] = 255;
+					pixels[(((int)(i/16))*16*16*16+(i%16)*16 + (j-1)*16*16 + k)*2+1] = 255;
+				}
+			}
+		}
+	}
+
+}
+		
+//---------------------------------------------------------------------
+static void addBitmapCharacter(ofMesh & charMesh, int & vertexCount, int character, int x , int y, bool vFlipped){
+	if (character < 128) {		
+
+		float posTexW = (float)(character % 16)/16.0f;
+		float posTexH = ((int)(character / 16.0f))/16.0f;
+
+		float texY1 = posTexH;
+		float texY2 = posTexH+heightTex;
+
+		//TODO: look into a better fix.
+		//old ofDrawBitmapString was 3 pixels higher, so this version renders text in a different position.
+		//3 pixel adjustment corrects that when y is flpped 5 when it's not.
+		int yOffset = 14;
+		if(!vFlipped){
+			y += 5;
+			y += yOffset;
+			yOffset *= -1;
+		}else{
+			y -= 3;
+		}
+
+		int vC = vertexCount;
+		charMesh.getTexCoords()[vC].set(posTexW,texY1);
+		charMesh.getTexCoords()[vC+1].set(posTexW + widthTex,texY1);
+		charMesh.getTexCoords()[vC+2].set(posTexW+widthTex,texY2);
+
+		charMesh.getTexCoords()[vC+3].set(posTexW + widthTex,texY2);
+		charMesh.getTexCoords()[vC+4].set(posTexW,texY2);
+		charMesh.getTexCoords()[vC+5].set(posTexW,texY1);
+
+		charMesh.getVertices()[vC].set(x,y);
+		charMesh.getVertices()[vC+1].set(x+8,y);
+		charMesh.getVertices()[vC+2].set(x+8,y+yOffset);
+
+		charMesh.getVertices()[vC+3].set(x+8,y+yOffset);
+		charMesh.getVertices()[vC+4].set(x,y+yOffset);
+		charMesh.getVertices()[vC+5].set(x,y);
+
+		vertexCount += 6;
+	}	
+}
+
+ofMesh ofBitmapFont::getMesh(const string & text, int x, int y, ofDrawBitmapMode mode, bool vFlipped) const{
+	int len = (int)text.length();
+	float fontSize = 8.0f;
+
+	ofMesh charMesh;
+	charMesh.setMode(OF_PRIMITIVE_TRIANGLES);
+	charMesh.getVertices().resize(6 * len);
+	charMesh.getTexCoords().resize(6 * len);
+
+	int vertexCount = 0;
+	int column = 0;
+	float lineHeight = fontSize*1.7f;
+	int newLineDirection = 1.0f;
+
+	if(!vFlipped){
+		newLineDirection  = -1;
+		// this would align multiline texts to the last line when vflip is disabled
+		//int lines = ofStringTimesInString(textString,"\n");
+		//y = lines*lineHeight;
+	}
+
+	float sx = x;
+	float sy = y-fontSize;
+
+	for(int c = 0; c < len; c++){
+		if(text[c] == '\n'){
+
+			sy += lineHeight*newLineDirection;
+			if(mode == OF_BITMAPMODE_SIMPLE) {
+				sx = x;
+			} else {
+				sx = 0;
+			}
+
+			column = 0;
+		} else if (text[c] == '\t'){
+			//move the cursor to the position of the next tab
+			//8 is the default tab spacing in osx terminal and windows	 command line
+			int out = column + 8 - (column % 8);
+			sx += fontSize * (out-column);
+			column = out;
+		} else if (text[c] >= 32){
+			// < 32 = control characters - don't draw
+			// solves a bug with control characters
+			// getting drawn when they ought to not be
+			addBitmapCharacter(charMesh, vertexCount, text[c], (int)sx, (int)sy, vFlipped);
+
+			sx += fontSize;
+			column++;
+		}
+	}
+	//We do this because its way faster
+	charMesh.getVertices().resize(vertexCount);
+	charMesh.getTexCoords().resize(vertexCount);
+	return charMesh;
+
+}
+
+ofBitmapFont::ofBitmapFont(){
+#ifdef TARGET_ANDROID
+	ofAddListener(ofxAndroidEvents().unloadGL,this,&ofBitmapFont::unloadTexture);
+#endif
+}
+
+ofBitmapFont::~ofBitmapFont(){
+#ifdef TARGET_ANDROID
+	ofAddListener(ofxAndroidEvents().reloadGL,this,&ofBitmapFont::unloadTexture);
+#endif
+}
+
+void ofBitmapFont::unloadTexture(){
+	texture.clear();
+}
+
+const ofTexture & ofBitmapFont::getTexture() const{
+	if(!texture.isAllocated()){
+		ofBitmapFont::init();
+		texture.allocate(pixels,false);
+		texture.setTextureMinMagFilter(GL_LINEAR,GL_NEAREST);
+		texture.setRGToRGBASwizzles(true);
+	}
+	return texture;
+}
+
+
+ofRectangle ofBitmapFont::getBoundingBox(const string & text, int x, int y) const{
+	const ofMesh & mesh = getMesh(text,x,y);
+	ofVec2f max(numeric_limits<float>::min(),numeric_limits<float>::min());
+	ofVec2f min(numeric_limits<float>::max(),numeric_limits<float>::max());
+	for(std::size_t i=0;i< mesh.getNumVertices(); i++){
 		const ofVec3f & p = mesh.getVertex(i);
 		if(p.x<min.x) min.x = p.x;
 		if(p.y<min.y) min.y = p.y;
