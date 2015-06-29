@@ -12,10 +12,11 @@
 /* GLUT 3.7 now tries to avoid including <windows.h>
    to avoid name space pollution, but Win32's <GL/gl.h> 
    needs APIENTRY and WINGDIAPI defined properly. */
-# if 1
-#  define  WIN32_LEAN_AND_MEAN
-#  include <windows.h>
-# else
+#if 1
+#define  WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+#else
    /* XXX This is from Win32's <windef.h> */
 #  ifndef APIENTRY
 #   define GLUT_APIENTRY_DEFINED
@@ -55,8 +56,8 @@ typedef unsigned short wchar_t;
 
 #endif
 
-#include <OpenGL/gl.h>
-#include <OpenGL/glu.h>
+//#include <OpenGL/gl.h>
+//#include <OpenGL/glu.h>
 
 /* define APIENTRY and CALLBACK to null string if we aren't on Win32 */
 #if !defined(_WIN32)
