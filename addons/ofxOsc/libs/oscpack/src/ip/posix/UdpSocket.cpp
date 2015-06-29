@@ -37,14 +37,29 @@
 #include "ip/UdpSocket.h"
 
 #include <pthread.h>
+
+#ifdef _WIN32
+
+#include <winsock2.h>
+#include <windows.h>
+#include <io.h>
+
+#else
+// unix includes here
 #include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <netdb.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <netinet/in.h> // for sockaddr_in
+
+#endif
+
+
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <sys/types.h>
+
 
 #include <signal.h>
 #include <math.h>
