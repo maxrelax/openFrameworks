@@ -1,11 +1,12 @@
 #include "ofxButton.h"
+using namespace std;
 
 ofxButton::ofxButton(){
 	value.setSerializable(false);
 }
 
 ofxButton::~ofxButton(){
-	ofRegisterMouseEvents(this,OF_EVENT_ORDER_BEFORE_APP);
+	//
 }
 
 ofxButton* ofxButton::setup(string toggleName, float width, float height){
@@ -18,7 +19,7 @@ ofxButton* ofxButton::setup(string toggleName, float width, float height){
 	value = false;
 	checkboxRect.set(1, 1, b.height - 2, b.height - 2);
 
-	ofRegisterMouseEvents(this,OF_EVENT_ORDER_BEFORE_APP);
+	registerMouseEvents();
 
 	value.addListener(this,&ofxButton::valueChanged);
 
@@ -49,6 +50,6 @@ bool ofxButton::mouseDragged(ofMouseEventArgs & args){
 
 void ofxButton::valueChanged(bool & v){
 	if(!v){
-		ofNotifyEvent(triggerEvent);
+		ofNotifyEvent(triggerEvent, this);
 	}
 }

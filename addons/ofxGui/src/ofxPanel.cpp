@@ -8,6 +8,7 @@
 #include "ofxPanel.h"
 #include "ofGraphics.h"
 #include "ofImage.h"
+using namespace std;
 
 ofImage ofxPanel::loadIcon;
 ofImage ofxPanel::saveIcon;
@@ -18,10 +19,15 @@ ofxPanel::ofxPanel()
 ofxPanel::ofxPanel(const ofParameterGroup & parameters, string filename, float x, float y)
 : ofxGuiGroup(parameters, filename, x, y)
 , bGrabbed(false){
+	if(!loadIcon.isAllocated() || !saveIcon.isAllocated()){
+		loadIcons();
+	}
+	registerMouseEvents();
+	setNeedsRedraw();
 }
 
 ofxPanel::~ofxPanel(){
-	unregisterMouseEvents();
+	//
 }
 
 ofxPanel * ofxPanel::setup(string collectionName, string filename, float x, float y){

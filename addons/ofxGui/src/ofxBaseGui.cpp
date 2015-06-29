@@ -2,9 +2,10 @@
 #include "ofXml.h"
 #include "ofImage.h"
 #include "ofBitmapFont.h"
+using namespace std;
 
 
-void ofxGuiSetFont(const string & fontPath,int fontsize, bool _bAntiAliased=true, bool _bFullCharacterSet=false, int dpi=0){
+void ofxGuiSetFont(const string & fontPath,int fontsize, bool _bAntiAliased, bool _bFullCharacterSet, int dpi){
 	ofxBaseGui::loadFont(fontPath,fontsize,_bAntiAliased,_bFullCharacterSet,dpi);
 }
 
@@ -59,16 +60,20 @@ int ofxBaseGui::defaultHeight = 18;
 ofTrueTypeFont ofxBaseGui::font;
 bool ofxBaseGui::fontLoaded = false;
 bool ofxBaseGui::useTTF = false;
+ofBitmapFont ofxBaseGui::bitmapFont;
 
 ofxBaseGui::ofxBaseGui(){
 	currentFrame = ofGetFrameNum();
-	serializer = ofPtr<ofBaseFileSerializer> (new ofXml);
+	serializer = std::shared_ptr<ofBaseFileSerializer>(new ofXml);
 
 	thisHeaderBackgroundColor=headerBackgroundColor;
 	thisBackgroundColor=backgroundColor;
 	thisBorderColor=borderColor;
 	thisTextColor=textColor;
 	thisFillColor=fillColor;
+
+	bRegisteredForMouseEvents = false;
+	needsRedraw = true;
 
 	/*if(!fontLoaded){
 		loadFont(OF_TTF_MONO,10,true,true);
@@ -78,7 +83,7 @@ ofxBaseGui::ofxBaseGui(){
 }
 
 void ofxBaseGui::loadFont(string filename, int fontsize, bool _bAntiAliased, bool _bFullCharacterSet, int dpi){
-	font.loadFont(filename,fontsize,_bAntiAliased,_bFullCharacterSet,dpi);
+	font.load(filename,fontsize,_bAntiAliased,_bFullCharacterSet,dpi);
 	fontLoaded = true;
 	useTTF = true;
 }
@@ -91,10 +96,30 @@ void ofxBaseGui::setUseTTF(bool bUseTTF){
 }
 
 ofxBaseGui::~ofxBaseGui(){
+	unregisterMouseEvents();
 }
 
+void ofxBaseGui::registerMouseEvents(){
+	if(bRegisteredForMouseEvents == true) {
+		return; // already registered.
+	}
+	bRegisteredForMouseEvents = true;
+	ofRegisterMouseEvents(this, OF_EVENT_ORDER_BEFORE_APP);
+}
+
+void ofxBaseGui::unregisterMouseEvents(){
+	if(bRegisteredForMouseEvents == false) {
+		return; // not registered.
+	}
+	ofUnregisterMouseEvents(this, OF_EVENT_ORDER_BEFORE_APP);
+	bRegisteredForMouseEvents = false;
+}
 
 void ofxBaseGui::draw(){
+    if(needsRedraw){
+        generateDraw();
+        needsRedraw = false;
+    }
 	currentFrame = ofGetFrameNum();
 	render();
 }
@@ -108,27 +133,28 @@ bool ofxBaseGui::isGuiDrawing(){
 }
 
 void ofxBaseGui::bindFontTexture(){
-	if(useTTF){
-		font.getFontTexture().bind();
-	}else{
-		ofBitmapStringGetTextureRef().bind();
-	}
+	//if(useTTF){
+ //       font.getFontTexture()
+	//	font.getFontTexture().bind();
+	//}else{
+	//	bitmapFont.getTexture().bind();
+	//}
 }
 
 void ofxBaseGui::unbindFontTexture(){
-	if(useTTF){
-		font.getFontTexture().unbind();
-	}else{
-		ofBitmapStringGetTextureRef().unbind();
-	}
+	//if(useTTF){
+	//	font.getFontTexture().unbind();
+	//}else{
+	//	bitmapFont.getTexture().unbind();
+	//}
 }
 
 
-ofMesh & ofxBaseGui::getTextMesh(const string & text, float x, float y){
+ofMesh ofxBaseGui::getTextMesh(const string & text, float x, float y){
 	if(useTTF){
 		return font.getStringMesh(text,x,y);
 	}else{
-		return ofBitmapStringGetMesh(text,x,y);
+		return bitmapFont.getMesh(text,x,y);
 	}
 }
 
@@ -136,7 +162,7 @@ ofRectangle ofxBaseGui::getTextBoundingBox(const string & text,float x, float y)
 	if(useTTF){
 		return font.getStringBoundingBox(text,x,y);
 	}else{
-		return ofBitmapStringGetBoundingBox(text,x,y);
+		return bitmapFont.getBoundingBox(text,x,y);
 	}
 }
 
@@ -161,7 +187,7 @@ void ofxBaseGui::loadFrom(ofBaseSerializer& serializer){
 }
 
 
-void ofxBaseGui::setDefaultSerializer(ofPtr<ofBaseFileSerializer>  _serializer){
+void ofxBaseGui::setDefaultSerializer(std::shared_ptr<ofBaseFileSerializer> _serializer){
 	serializer = _serializer;
 }
 
@@ -180,23 +206,23 @@ void ofxBaseGui::setPosition(ofPoint p){
 void ofxBaseGui::setPosition(float x, float y){
 	b.x = x;
 	b.y = y;
-	generateDraw();
+	setNeedsRedraw();
 }
 
 void ofxBaseGui::setSize(float w, float h){
 	b.width = w;
 	b.height = h;
-	generateDraw();
+	setNeedsRedraw();
 }
 
 void ofxBaseGui::setShape(ofRectangle r){
 	b = r;
-	generateDraw();
+	setNeedsRedraw();
 }
 
 void ofxBaseGui::setShape(float x, float y, float w, float h){
 	b.set(x,y,w,h);
-	generateDraw();
+	setNeedsRedraw();
 }
 
 ofPoint ofxBaseGui::getPosition(){
@@ -236,27 +262,27 @@ ofColor ofxBaseGui::getFillColor(){
 }
 
 void ofxBaseGui::setHeaderBackgroundColor(const ofColor & color){
-	generateDraw();
+    setNeedsRedraw();
 	thisHeaderBackgroundColor = color;
 }
 
 void ofxBaseGui::setBackgroundColor(const ofColor & color){
-	generateDraw();
+    setNeedsRedraw();
 	thisBackgroundColor = color;
 }
 
 void ofxBaseGui::setBorderColor(const ofColor & color){
-	generateDraw();
+    setNeedsRedraw();
 	thisBorderColor = color;
 }
 
 void ofxBaseGui::setTextColor(const ofColor & color){
-	generateDraw();
+    setNeedsRedraw();
 	thisTextColor = color;
 }
 
 void ofxBaseGui::setFillColor(const ofColor & color){
-	generateDraw();
+    setNeedsRedraw();
 	thisFillColor = color;
 }
 
@@ -290,6 +316,10 @@ void ofxBaseGui::setDefaultWidth(int width){
 
 void ofxBaseGui::setDefaultHeight(int height){
 	defaultHeight = height;
+}
+
+void ofxBaseGui::setNeedsRedraw(){
+    needsRedraw = true;
 }
 
 string ofxBaseGui::saveStencilToHex(ofImage& img) {

@@ -1,5 +1,6 @@
 #include "ofxToggle.h"
 #include "ofGraphics.h"
+using namespace std;
 
 ofxToggle::ofxToggle(ofParameter<bool> _bVal, float width, float height){
 	setup(_bVal,width,height);
@@ -7,7 +8,6 @@ ofxToggle::ofxToggle(ofParameter<bool> _bVal, float width, float height){
 
 ofxToggle::~ofxToggle(){
 	value.removeListener(this,&ofxToggle::valueChanged);
-	ofUnregisterMouseEvents(this,OF_EVENT_ORDER_BEFORE_APP);
 }
 
 ofxToggle * ofxToggle::setup(ofParameter<bool> _bVal, float width, float height){
@@ -20,8 +20,8 @@ ofxToggle * ofxToggle::setup(ofParameter<bool> _bVal, float width, float height)
 	checkboxRect.set(1, 1, b.height - 2, b.height - 2);
 
 	value.addListener(this,&ofxToggle::valueChanged);
-	ofRegisterMouseEvents(this,OF_EVENT_ORDER_BEFORE_APP);
-	generateDraw();
+	registerMouseEvents();
+	setNeedsRedraw();
 
 	return this;
 
@@ -159,5 +159,5 @@ ofAbstractParameter & ofxToggle::getParameter(){
 }
 
 void ofxToggle::valueChanged(bool & value){
-	generateDraw();
+    setNeedsRedraw();
 }
