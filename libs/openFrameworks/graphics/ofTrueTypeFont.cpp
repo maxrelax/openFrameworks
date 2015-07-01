@@ -1,23 +1,30 @@
 #include "ofTrueTypeFont.h"
 //--------------------------
 
-#include <ft2build.h>
+#include "ft2build.h"
 
 #ifdef TARGET_LINUX
-#include <fontconfig/fontconfig.h>
-#endif
-
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 #include FT_OUTLINE_H
 #include FT_TRIGONOMETRY_H
+#include <fontconfig/fontconfig.h>
+#else
+#include "freetype2/freetype/freetype.h"
+#include "freetype2/freetype/ftglyph.h"
+#include "freetype2/freetype/ftoutln.h"
+#include "freetype2/freetype/fttrigon.h"
+#endif
 
 #include <algorithm>
 
 #include "ofUtils.h"
 #include "ofGraphics.h"
 #include "ofAppRunner.h"
-#include "utf8.h"
+#include "Poco/TextConverter.h"
+#include "Poco/UTF8Encoding.h"
+#include "Poco/Latin1Encoding.h"
+#include "Poco/Latin9Encoding.h"
 
 static bool printVectorInfo = false;
 static int ttfGlobalDpi = 96;
@@ -25,18 +32,12 @@ static bool librariesInitialized = false;
 static FT_Library library;
 
 //--------------------------------------------------------
-void ofTrueTypeShutdown(){
-#ifdef TARGET_LINUX
-	FcFini();
-#endif
-}
-
-//--------------------------------------------------------
 void ofTrueTypeFont::setGlobalDpi(int newDpi){
 	ttfGlobalDpi = newDpi;
 }
 
 //--------------------------------------------------------
+static ofTTFCharacter makeContoursForCharacter(FT_Face &face);
 static ofTTFCharacter makeContoursForCharacter(FT_Face &face){
 
 		//int num			= face->glyph->outline.n_points;
@@ -172,11 +173,29 @@ static ofTTFCharacter makeContoursForCharacter(FT_Face &face){
 	return charOutlines;
 }
 
-#if defined(TARGET_ANDROID)
-#include "ofxAndroidUtils.h"
+#if defined(TARGET_ANDROID) || defined(TARGET_OF_IOS)
+	#include <set>
+	static set<ofTrueTypeFont*> & all_fonts(){
+		static set<ofTrueTypeFont*> *all_fonts = new set<ofTrueTypeFont*>;
+		return *all_fonts;
+	}
+
+	void ofUnloadAllFontTextures(){
+		set<ofTrueTypeFont*>::iterator it;
+		for(it=all_fonts().begin();it!=all_fonts().end();it++){
+			(*it)->unloadTextures();
+		}
+	}
+
+	void ofReloadAllFontTextures(){
+		set<ofTrueTypeFont*>::iterator it;
+		for(it=all_fonts().begin();it!=all_fonts().end();it++){
+			(*it)->reloadTextures();
+		}
+	}
+
 #endif
 
-//------------------------------------------------------------------
 bool compare_cps(const charProps & c1, const charProps & c2){
 	if(c1.tH == c2.tH) return c1.tW > c2.tW;
 	else return c1.tH > c2.tH;
@@ -184,7 +203,6 @@ bool compare_cps(const charProps & c1, const charProps & c2){
 
 
 #ifdef TARGET_OSX
-//------------------------------------------------------------------
 static string osxFontPathByName( string fontname ){
 	CFStringRef targetName = CFStringCreateWithCString(NULL, fontname.c_str(), kCFStringEncodingUTF8);
 	CTFontDescriptorRef targetDescriptor = CTFontDescriptorCreateWithNameAndSize(targetName, 0.0);
@@ -210,7 +228,6 @@ static string osxFontPathByName( string fontname ){
 // font font face -> file name name mapping
 static map<string, string> fonts_table;
 // read font linking information from registry, and store in std::map
-//------------------------------------------------------------------
 void initWindows(){
 	LONG l_ret;
 
@@ -293,7 +310,6 @@ static string winFontPathByName( string fontname ){
 #endif
 
 #ifdef TARGET_LINUX
-//------------------------------------------------------------------
 static string linuxFontPathByName(string fontname){
 	string filename;
 	FcPattern * pattern = FcNameParse((const FcChar8*)fontname.c_str());
@@ -309,8 +325,6 @@ static string linuxFontPathByName(string fontname){
 
 	if(!fontMatch){
 		ofLogError() << "linuxFontPathByName(): couldn't match font file or system font with name \"" << fontname << "\"";
-		FcPatternDestroy(fontMatch);
-		FcPatternDestroy(pattern);
 		return "";
 	}
 	FcChar8	*file;
@@ -318,17 +332,12 @@ static string linuxFontPathByName(string fontname){
 		filename = (const char*)file;
 	}else{
 		ofLogError() << "linuxFontPathByName(): couldn't find font match for \"" << fontname << "\"";
-		FcPatternDestroy(fontMatch);
-		FcPatternDestroy(pattern);
 		return "";
 	}
-	FcPatternDestroy(fontMatch);
-	FcPatternDestroy(pattern);
 	return filename;
 }
 #endif
 
-//------------------------------------------------------------------
 bool ofTrueTypeFont::initLibraries(){
 	if(!librariesInitialized){
 	    FT_Error err;
@@ -352,44 +361,58 @@ bool ofTrueTypeFont::initLibraries(){
     return true;
 }
 
+void ofTrueTypeFont::finishLibraries(){
+	if(librariesInitialized){
+#ifdef TARGET_LINUX
+		//FcFini();
+#endif
+		FT_Done_FreeType(library);
+	}
+}
+
 
 //------------------------------------------------------------------
 ofTrueTypeFont::ofTrueTypeFont(){
 	bLoadedOk		= false;
 	bMakeContours	= false;
+	#if defined(TARGET_ANDROID) || defined(TARGET_OF_IOS)
+		all_fonts().insert(this);
+	#endif
+	//cps				= NULL;
 	letterSpacing = 1;
 	spaceSize = 1;
 
+	// 3 pixel border around the glyph
+	// We show 2 pixels of this, so that blending looks good.
+	// 1 pixels is hidden because we don't want to see the real edge of the texture
+
+	border			= 3;
+	//visibleBorder	= 2;
 	stringQuads.setMode(OF_PRIMITIVE_TRIANGLES);
-	face = NULL;
-	ascenderHeight = 0;
-	bAntiAliased = 0;
-	bFullCharacterSet = 0;
-	descenderHeight = 0;
-	dpi = 96;
-	fontSize = 0;
-	lineHeight = 0;
-	nCharacters = 0;
-	simplifyAmt = 0;
+	binded = false;
 }
 
 //------------------------------------------------------------------
 ofTrueTypeFont::~ofTrueTypeFont(){
 
-	if(face) FT_Done_Face(face);
-	#if defined(TARGET_ANDROID)
-	ofRemoveListener(ofxAndroidEvents().unloadGL,this,&ofTrueTypeFont::unloadTextures);
-	ofRemoveListener(ofxAndroidEvents().reloadGL,this,&ofTrueTypeFont::reloadTextures);
+	if (bLoadedOk){
+		unloadTextures();
+	}
+
+	#if defined(TARGET_ANDROID) || defined(TARGET_OF_IOS)
+		all_fonts().erase(this);
 	#endif
 }
 
 void ofTrueTypeFont::unloadTextures(){
 	if(!bLoadedOk) return;
+
 	texAtlas.clear();
+	bLoadedOk = false;
 }
 
 void ofTrueTypeFont::reloadTextures(){
-	if(bLoadedOk) load(filename, fontSize, bAntiAliased, bFullCharacterSet, bMakeContours, simplifyAmt, dpi);
+	loadFont(filename, fontSize, bAntiAliased, bFullCharacterSet, bMakeContours, simplifyAmt, dpi);
 }
 
 static bool loadFontFace(string fontname, int _fontSize, FT_Face & face, string & filename){
@@ -437,22 +460,19 @@ static bool loadFontFace(string fontname, int _fontSize, FT_Face & face, string 
 
 	return true;
 }
+
 //-----------------------------------------------------------
 bool ofTrueTypeFont::loadFont(string _filename, int _fontSize, bool _bAntiAliased, bool _bFullCharacterSet, bool _makeContours, float _simplifyAmt, int _dpi) {
-	return load(_filename, _fontSize, _bAntiAliased, _bFullCharacterSet, _makeContours, _simplifyAmt, _dpi);
-}
 
-//-----------------------------------------------------------
-bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, bool _bFullCharacterSet, bool _makeContours, float _simplifyAmt, int _dpi) {
-	#if defined(TARGET_ANDROID)
-	ofAddListener(ofxAndroidEvents().unloadGL,this,&ofTrueTypeFont::unloadTextures);
-	ofAddListener(ofxAndroidEvents().reloadGL,this,&ofTrueTypeFont::reloadTextures);
-	#endif
-	int border = 1;
 	initLibraries();
 
-	// if we've already been loaded, try to clean up :
-	unloadTextures();
+	//------------------------------------------------
+	if (bLoadedOk == true){
+
+		// we've already been loaded, try to clean up :
+		unloadTextures();
+	}
+	//------------------------------------------------
 
 	if( _dpi == 0 ){
 		_dpi = ttfGlobalDpi;
@@ -471,20 +491,14 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 	//--------------- load the library and typeface
 
 
+	FT_Face face;
 	if(!loadFontFace(_filename,_fontSize,face,filename)){
         return false;
 	}
 
 
 	FT_Set_Char_Size( face, fontSize << 6, fontSize << 6, dpi, dpi);
-	float fontUnitScale = ((float)fontSize * dpi) / (72 * face->units_per_EM);
-	lineHeight = face->height * fontUnitScale;
-	ascenderHeight = face->ascender * fontUnitScale;
-	descenderHeight = face->descender * fontUnitScale;
-	glyphBBox.set(face->bbox.xMin * fontUnitScale,
-				  face->bbox.yMin * fontUnitScale,
-				  (face->bbox.xMax - face->bbox.xMin) * fontUnitScale,
-				  (face->bbox.yMax - face->bbox.yMin) * fontUnitScale);
+	lineHeight = fontSize * 1.43f;
 
 	//------------------------------------------------------
 	//kerning would be great to support:
@@ -497,12 +511,9 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 	cps.resize(nCharacters);
 
 	if(bMakeContours){
+		charOutlines.clear();
 		charOutlines.assign(nCharacters, ofTTFCharacter());
 		charOutlinesNonVFlipped.assign(nCharacters, ofTTFCharacter());
-		charOutlinesContour.assign(nCharacters, ofTTFCharacter());
-		charOutlinesNonVFlippedContour.assign(nCharacters, ofTTFCharacter());
-	}else{
-		charOutlines.resize(1);
 	}
 
 	vector<ofPixels> expanded_data(nCharacters);
@@ -517,7 +528,7 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 		//------------------------------------------ anti aliased or not:
 		int glyph = (unsigned char)(i+NUM_CHARACTER_TO_START);
 		if (glyph == 0xA4) glyph = 0x20AC; // hack to load the euro sign, all codes in 8859-15 match with utf-32 except for this one
-		err = FT_Load_Glyph( face, FT_Get_Char_Index( face, glyph ), bAntiAliased ?  FT_LOAD_FORCE_AUTOHINT : FT_LOAD_DEFAULT );
+		err = FT_Load_Glyph( face, FT_Get_Char_Index( face, glyph ), FT_LOAD_DEFAULT );
         if(err){
 			ofLogError("ofTrueTypeFont") << "loadFont(): FT_Load_Glyph failed for char " << i << ": FT_Error " << err;
 
@@ -527,6 +538,20 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 		else FT_Render_Glyph(face->glyph, FT_RENDER_MODE_MONO);
 
 		//------------------------------------------
+		FT_Bitmap& bitmap= face->glyph->bitmap;
+
+
+		// prepare the texture:
+		/*int width  = ofNextPow2( bitmap.width + border*2 );
+		int height = ofNextPow2( bitmap.rows  + border*2 );
+
+
+		// ------------------------- this is fixing a bug with small type
+		// ------------------------- appearantly, opengl has trouble with
+		// ------------------------- width or height textures of 1, so we
+		// ------------------------- we just set it to 2...
+		if (width == 1) width = 2;
+		if (height == 1) height = 2;*/
 
 
 		if(bMakeContours){
@@ -536,56 +561,61 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 
 			//int character = i + NUM_CHARACTER_TO_START;
 			charOutlines[i] = makeContoursForCharacter( face );
-			charOutlinesContour[i] = charOutlines[i];
-			charOutlinesContour[i].setFilled(false);
-			charOutlinesContour[i].setStrokeWidth(1);
 
 			charOutlinesNonVFlipped[i] = charOutlines[i];
 			charOutlinesNonVFlipped[i].translate(ofVec3f(0,cps[i].height));
 			charOutlinesNonVFlipped[i].scale(1,-1);
-			charOutlinesNonVFlippedContour[i] = charOutlines[i];
-			charOutlinesNonVFlippedContour[i].setFilled(false);
-			charOutlinesNonVFlippedContour[i].setStrokeWidth(1);
 
 
-			if(simplifyAmt>0){
+			if(simplifyAmt>0)
 				charOutlines[i].simplify(simplifyAmt);
+			charOutlines[i].getTessellation();
+
+			if(simplifyAmt>0)
 				charOutlinesNonVFlipped[i].simplify(simplifyAmt);
-				charOutlinesContour[i].simplify(simplifyAmt);
-				charOutlinesNonVFlippedContour[i].simplify(simplifyAmt);
-			}
+			charOutlinesNonVFlipped[i].getTessellation();
 		}
 
 
 		// -------------------------
 		// info about the character:
-		FT_Bitmap& bitmap= face->glyph->bitmap;
-		int width  = bitmap.width;
+		cps[i].character		= i;
+		cps[i].height 			= face->glyph->bitmap_top;
+		cps[i].width 			= face->glyph->bitmap.width;
+		cps[i].setWidth 		= face->glyph->advance.x >> 6;
+		cps[i].topExtent 		= face->glyph->bitmap.rows;
+		cps[i].leftExtent		= face->glyph->bitmap_left;
+
+		int width  = cps[i].width;
 		int height = bitmap.rows;
 
-		cps[i].characterIndex	= i;
-		cps[i].glyph			= glyph;
-		cps[i].height 			= face->glyph->metrics.height>>6;
-		cps[i].width 			= face->glyph->metrics.width>>6;
-		cps[i].bearingX			= face->glyph->metrics.horiBearingX>>6;
-		cps[i].bearingY			= face->glyph->metrics.horiBearingY>>6;
-		cps[i].xmin				= face->glyph->bitmap_left;
-		cps[i].xmax				= cps[i].xmin + cps[i].width;
-		cps[i].ymin				= -face->glyph->bitmap_top;
-		cps[i].ymax				= cps[i].ymin + cps[i].height;
-		cps[i].advance			= face->glyph->metrics.horiAdvance>>6;
+
+		cps[i].tW				= width;
+		cps[i].tH				= height;
 
 
-		cps[i].tW				= cps[i].width;
-		cps[i].tH				= cps[i].height;
 
+		GLint fheight	= cps[i].height;
+		GLint bwidth	= cps[i].width;
+		GLint top		= cps[i].topExtent - cps[i].height;
+		GLint lextent	= cps[i].leftExtent;
 
-		areaSum += (cps[i].tW+border*2)*(cps[i].tH+border*2);
+		GLfloat	corr, stretch;
 
-		if(width==0 || height==0) continue;
+		//this accounts for the fact that we are showing 2*visibleBorder extra pixels
+		//so we make the size of each char that many pixels bigger
+		stretch = 0;//(float)(visibleBorder * 2);
+
+		corr	= (float)(( (fontSize - fheight) + top) - fontSize);
+
+		cps[i].x1		= lextent + bwidth + stretch;
+		cps[i].y1		= fheight + corr + stretch;
+		cps[i].x2		= (float) lextent;
+		cps[i].y2		= -top + corr;
+
 
 		// Allocate Memory For The Texture Data.
-		expanded_data[i].allocate(width, height, OF_PIXELS_MONO);
+		expanded_data[i].allocate(width, height, 2);
 		//-------------------------------- clear data:
 		expanded_data[i].set(0,255); // every luminance pixel = 255
 		expanded_data[i].set(1,0);
@@ -593,7 +623,7 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 
 		if (bAntiAliased == true){
 			ofPixels bitmapPixels;
-			bitmapPixels.setFromExternalPixels(bitmap.buffer,bitmap.width,bitmap.rows,OF_PIXELS_MONO);
+			bitmapPixels.setFromExternalPixels(bitmap.buffer,bitmap.width,bitmap.rows,1);
 			expanded_data[i].setChannel(1,bitmapPixels);
 		} else {
 			//-----------------------------------
@@ -601,10 +631,10 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 			// 1-bit format, hella funky
 			// here we unpack it:
 			unsigned char *src =  bitmap.buffer;
-			for(unsigned int j=0; j <bitmap.rows;j++) {
+			for(int j=0; j <bitmap.rows;j++) {
 				unsigned char b=0;
 				unsigned char *bptr =  src;
-				for(unsigned int k=0; k < bitmap.width ; k++){
+				for(int k=0; k < bitmap.width ; k++){
 					expanded_data[i][2*(k+j*width)] = 255;
 
 					if (k%8==0){
@@ -618,6 +648,8 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 			}
 			//-----------------------------------
 		}
+
+		areaSum += (cps[i].width+border*2)*(cps[i].height+border*2);
 	}
 
 	vector<charProps> sortedCopy = cps;
@@ -658,7 +690,7 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 
 
 	ofPixels atlasPixelsLuminanceAlpha;
-	atlasPixelsLuminanceAlpha.allocate(w,h,OF_PIXELS_MONO);
+	atlasPixelsLuminanceAlpha.allocate(w,h,2);
 	atlasPixelsLuminanceAlpha.set(0,255);
 	atlasPixelsLuminanceAlpha.set(1,0);
 
@@ -667,7 +699,7 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 	int y=0;
 	int maxRowHeight = sortedCopy[0].tH + border*2;
 	for(int i=0;i<(int)cps.size();i++){
-		ofPixels & charPixels = expanded_data[sortedCopy[i].characterIndex];
+		ofPixels & charPixels = expanded_data[sortedCopy[i].character];
 
 		if(x+sortedCopy[i].tW + border*2>w){
 			x = 0;
@@ -675,45 +707,60 @@ bool ofTrueTypeFont::load(string _filename, int _fontSize, bool _bAntiAliased, b
 			maxRowHeight = sortedCopy[i].tH + border*2;
 		}
 
-		cps[sortedCopy[i].characterIndex].t1		= float(x + border)/float(w);
-		cps[sortedCopy[i].characterIndex].v1		= float(y + border)/float(h);
-		cps[sortedCopy[i].characterIndex].t2		= float(cps[sortedCopy[i].characterIndex].tW + x + border)/float(w);
-		cps[sortedCopy[i].characterIndex].v2		= float(cps[sortedCopy[i].characterIndex].tH + y + border)/float(h);
+		cps[sortedCopy[i].character].t2		= float(x + border)/float(w);
+		cps[sortedCopy[i].character].v2		= float(y + border)/float(h);
+		cps[sortedCopy[i].character].t1		= float(cps[sortedCopy[i].character].tW + x + border)/float(w);
+		cps[sortedCopy[i].character].v1		= float(cps[sortedCopy[i].character].tH + y + border)/float(h);
 		charPixels.pasteInto(atlasPixelsLuminanceAlpha,x+border,y+border);
 		x+= sortedCopy[i].tW + border*2;
 	}
-	texAtlas.allocate(atlasPixelsLuminanceAlpha,false);
-	texAtlas.setRGToRGBASwizzles(true);
+
+	ofPixels atlasPixels;
+	atlasPixels.allocate(atlasPixelsLuminanceAlpha.getWidth(),atlasPixelsLuminanceAlpha.getHeight(),4);
+	atlasPixels.setChannel(0,atlasPixelsLuminanceAlpha.getChannel(0));
+	atlasPixels.setChannel(1,atlasPixelsLuminanceAlpha.getChannel(0));
+	atlasPixels.setChannel(2,atlasPixelsLuminanceAlpha.getChannel(0));
+	atlasPixels.setChannel(3,atlasPixelsLuminanceAlpha.getChannel(1));
+	texAtlas.allocate(atlasPixels,false);
 
 	if(bAntiAliased && fontSize>20){
 		texAtlas.setTextureMinMagFilter(GL_LINEAR,GL_LINEAR);
 	}else{
 		texAtlas.setTextureMinMagFilter(GL_NEAREST,GL_NEAREST);
 	}
-	texAtlas.loadData(atlasPixelsLuminanceAlpha);
+	texAtlas.loadData(atlasPixels);
 
 	// ------------- close the library and typeface
+	FT_Done_Face(face);
   	bLoadedOk = true;
 	return true;
 }
 
+ofTextEncoding ofTrueTypeFont::getEncoding() const {
+	return encoding;
+}
+
+void ofTrueTypeFont::setEncoding(ofTextEncoding _encoding) {
+	encoding = _encoding;
+}
+
 //-----------------------------------------------------------
-bool ofTrueTypeFont::isLoaded() const{
+bool ofTrueTypeFont::isLoaded() {
 	return bLoadedOk;
 }
 
 //-----------------------------------------------------------
-bool ofTrueTypeFont::isAntiAliased() const{
+bool ofTrueTypeFont::isAntiAliased() {
 	return bAntiAliased;
 }
 
 //-----------------------------------------------------------
-bool ofTrueTypeFont::hasFullCharacterSet() const{
+bool ofTrueTypeFont::hasFullCharacterSet() {
 	return bFullCharacterSet;
 }
 
 //-----------------------------------------------------------
-int ofTrueTypeFont::getSize() const{
+int ofTrueTypeFont::getSize() {
 	return fontSize;
 }
 
@@ -723,23 +770,8 @@ void ofTrueTypeFont::setLineHeight(float _newLineHeight) {
 }
 
 //-----------------------------------------------------------
-float ofTrueTypeFont::getLineHeight() const{
+float ofTrueTypeFont::getLineHeight(){
 	return lineHeight;
-}
-
-//-----------------------------------------------------------
-float ofTrueTypeFont::getAscenderHeight() const {
-	return ascenderHeight;
-}
-
-//-----------------------------------------------------------
-float ofTrueTypeFont::getDescenderHeight() const {
-	return descenderHeight;
-}
-
-//-----------------------------------------------------------
-const ofRectangle & ofTrueTypeFont::getGlyphBBox() const {
-	return glyphBBox;
 }
 
 //-----------------------------------------------------------
@@ -748,7 +780,7 @@ void ofTrueTypeFont::setLetterSpacing(float _newletterSpacing) {
 }
 
 //-----------------------------------------------------------
-float ofTrueTypeFont::getLetterSpacing() const{
+float ofTrueTypeFont::getLetterSpacing(){
 	return letterSpacing;
 }
 
@@ -758,72 +790,64 @@ void ofTrueTypeFont::setSpaceSize(float _newspaceSize) {
 }
 
 //-----------------------------------------------------------
-float ofTrueTypeFont::getSpaceSize() const{
+float ofTrueTypeFont::getSpaceSize(){
 	return spaceSize;
 }
 
 //------------------------------------------------------------------
-ofTTFCharacter ofTrueTypeFont::getCharacterAsPoints(int character, bool vflip, bool filled) const{
+ofTTFCharacter ofTrueTypeFont::getCharacterAsPoints(int character, bool vflip){
 	if( bMakeContours == false ){
 		ofLogError("ofxTrueTypeFont") << "getCharacterAsPoints(): contours not created, call loadFont() with makeContours set to true";
 		return ofTTFCharacter();
 	}
     if (character - NUM_CHARACTER_TO_START >= nCharacters || character < NUM_CHARACTER_TO_START){
-        //ofLogError("ofxTrueTypeFont") << "getCharacterAsPoint(): char " << character + NUM_CHARACTER_TO_START << " not allocated: line " << __LINE__ << " in " << __FILE__;
-
+        ofLogError("ofxTrueTypeFont") << "getCharacterAsPoint(): char " << character + NUM_CHARACTER_TO_START
+		<< " not allocated: line " << __LINE__ << " in " << __FILE__;
+        
         return ofTTFCharacter();
     }
     
     if(vflip){
-    	if(filled){
-    		return charOutlines[character - NUM_CHARACTER_TO_START];
-    	}else{
-    		return charOutlinesContour[character - NUM_CHARACTER_TO_START];
-    	}
+    	return charOutlines[character - NUM_CHARACTER_TO_START];
     }else{
-    	if(filled){
-    		return charOutlinesNonVFlipped[character - NUM_CHARACTER_TO_START];
-    	}else{
-    		return charOutlinesNonVFlippedContour[character - NUM_CHARACTER_TO_START];
-    	}
+    	return charOutlinesNonVFlipped[character - NUM_CHARACTER_TO_START];
     }
 }
 
 //-----------------------------------------------------------
-void ofTrueTypeFont::drawChar(int c, float x, float y, bool vFlipped) const{
+void ofTrueTypeFont::drawChar(int c, float x, float y) {
 
 	if (c >= nCharacters){
 		//ofLogError("ofTrueTypeFont") << "drawChar(): char " << c + NUM_CHARACTER_TO_START << " not allocated: line " << __LINE__ << " in " << __FILE__;
 		return;
 	}
 
-
-	int	xmin, ymin, xmax, ymax;
-	float t1, v1, t2, v2;
+	GLfloat	x1, y1, x2, y2;
+	GLfloat t1, v1, t2, v2;
 	t2		= cps[c].t2;
 	v2		= cps[c].v2;
 	t1		= cps[c].t1;
 	v1		= cps[c].v1;
 
-	xmin		= cps[c].xmin+x;
-	ymin		= cps[c].ymin;
-	xmax		= cps[c].xmax+x;
-	ymax		= cps[c].ymax;
-
-	if(!vFlipped){
-       ymin *= -1;
-       ymax *= -1;
-	}
-
-    ymin += y;
-    ymax += y;
+	x1		= cps[c].x1+x;
+	y1		= cps[c].y1;
+	x2		= cps[c].x2+x;
+	y2		= cps[c].y2;
 
 	int firstIndex = stringQuads.getVertices().size();
 
-	stringQuads.addVertex(ofVec3f(xmin,ymin));
-	stringQuads.addVertex(ofVec3f(xmax,ymin));
-	stringQuads.addVertex(ofVec3f(xmax,ymax));
-	stringQuads.addVertex(ofVec3f(xmin,ymax));
+	if(!ofIsVFlipped()){
+       y1 *= -1;
+       y2 *= -1;  
+	}
+
+    y1 += y;
+    y2 += y; 
+
+	stringQuads.addVertex(ofVec3f(x1,y1));
+	stringQuads.addVertex(ofVec3f(x2,y1));
+	stringQuads.addVertex(ofVec3f(x2,y2));
+	stringQuads.addVertex(ofVec3f(x1,y2));
 
 	stringQuads.addTexCoord(ofVec2f(t1,v1));
 	stringQuads.addTexCoord(ofVec2f(t2,v1));
@@ -839,18 +863,13 @@ void ofTrueTypeFont::drawChar(int c, float x, float y, bool vFlipped) const{
 }
 
 //-----------------------------------------------------------
-int ofTrueTypeFont::getKerning(int c, int prevC) const{
-    if(FT_HAS_KERNING( face ) && prevC>0 && prevC<nCharacters && c>0 && c<nCharacters){
-        FT_Vector kerning;
-        FT_Get_Kerning(face, FT_Get_Char_Index(face, cps[prevC].glyph), FT_Get_Char_Index(face, cps[c].glyph), FT_KERNING_UNFITTED, &kerning);
-        return kerning.x>>6;
-    }else{
-        return 0;
-    }
-}
+vector<ofTTFCharacter> ofTrueTypeFont::getStringAsPoints(string str, bool vflip){
+	if(bFullCharacterSet && encoding==OF_ENCODING_UTF8){
+		string o;
+		Poco::TextConverter(Poco::UTF8Encoding(),Poco::Latin9Encoding()).convert(str,o);
+		str=o;
+	}
 
-//-----------------------------------------------------------
-vector<ofTTFCharacter> ofTrueTypeFont::getStringAsPoints(string str, bool vflip, bool filled) const{
 	vector<ofTTFCharacter> shapes;
 
 	if (!bLoadedOk){
@@ -858,6 +877,7 @@ vector<ofTTFCharacter> ofTrueTypeFont::getStringAsPoints(string str, bool vflip,
 		return shapes;
 	};
 
+	GLint		index	= 0;
 	GLfloat		X		= 0;
 	GLfloat		Y		= 0;
 	int newLineDirection		= 1;
@@ -869,152 +889,258 @@ vector<ofTTFCharacter> ofTrueTypeFont::getStringAsPoints(string str, bool vflip,
 		newLineDirection = -1;
 	}
 
-	utf8::iterator<const char*> it(&str.front(), &str.front(), (&str.back())+1);
-	utf8::iterator<const char*> end((&str.back())+1, &str.front(), (&str.back())+1);
-    int prevCy = -1;
-	while(it != end){
-		try{
-			auto c = *it;
-			int cy = c - NUM_CHARACTER_TO_START;
-			if (cy < nCharacters){ 			// full char set or not?
-				if (c == '\n') {
-					Y += lineHeight*newLineDirection;
-					X = 0 ; //reset X Pos back to zero
-				} else if(cy > -1){
-					shapes.push_back(getCharacterAsPoints(c,vflip,filled));
 
-					X += getKerning(cy,prevCy);
+	int len = (int)str.length();
 
-					shapes.back().translate(ofPoint(X,Y));
+	while(index < len){
+		int cy = (unsigned char)str[index] - NUM_CHARACTER_TO_START;
+		if (cy < nCharacters){ 			// full char set or not?
+			if (str[index] == '\n') {
+				Y += lineHeight*newLineDirection;
+				X = 0 ; //reset X Pos back to zero
+			}else if (str[index] == ' ') {
+				int cy = (int)'p' - NUM_CHARACTER_TO_START;
+				X += cps[cy].setWidth * letterSpacing * spaceSize;
+			} else if(cy > -1){
+				shapes.push_back(getCharacterAsPoints((unsigned char)str[index],vflip));
+				shapes.back().translate(ofPoint(X,Y));
 
-					X += cps[cy].advance * letterSpacing;
-				}
+				X += cps[cy].setWidth * letterSpacing;
 			}
-			++it;
-			prevCy = cy;
-		}catch(...){
-			break;
 		}
+		index++;
 	}
 	return shapes;
 
 }
 
 //-----------------------------------------------------------
-void ofTrueTypeFont::drawCharAsShape(int c, float x, float y, bool vFlipped, bool filled) const{
-	//if (c - NUM_CHARACTER_TO_START >= nCharacters || c < NUM_CHARACTER_TO_START){
-	//	//ofLogError("ofTrueTypeFont") << "drawCharAsShape(): char " << << c + NUM_CHARACTER_TO_START << " not allocated: line " << __LINE__ << " in " << __FILE__;
-	//	return;
-	//}
-	////-----------------------
- //   if(vFlipped){
- //   	if(filled){
- //   		charOutlines[c - NUM_CHARACTER_TO_START].draw(x,y);
- //   	}else{
- //   		charOutlinesContour[c - NUM_CHARACTER_TO_START].draw(x, y);
- //   	}
- //   }else{
- //   	if(filled){
- //   		charOutlinesNonVFlipped[c - NUM_CHARACTER_TO_START].draw(x,y);
- //   	}else{
- //   		charOutlinesNonVFlippedContour[c - NUM_CHARACTER_TO_START].draw(x,y);
- //   	}
- //   }
+void ofTrueTypeFont::drawCharAsShape(int c, float x, float y) {
+	if (c - NUM_CHARACTER_TO_START >= nCharacters || c < NUM_CHARACTER_TO_START){
+		//ofLogError("ofTrueTypeFont") << "drawCharAsShape(): char " << << c + NUM_CHARACTER_TO_START << " not allocated: line " << __LINE__ << " in " << __FILE__;
+		return;
+	}
+	//-----------------------
+
+	if(ofIsVFlipped()){
+		ofTTFCharacter & charRef = charOutlines[c - NUM_CHARACTER_TO_START];
+		charRef.setFilled(ofGetStyle().bFill);
+		charRef.draw(x,y);
+	}else{
+		ofTTFCharacter & charRef = charOutlinesNonVFlipped[c - NUM_CHARACTER_TO_START];
+		charRef.setFilled(ofGetStyle().bFill);
+		charRef.draw(x,y);
+	}
 }
 
 //-----------------------------------------------------------
-float ofTrueTypeFont::stringWidth(string c) const{
+float ofTrueTypeFont::stringWidth(string c) {
     ofRectangle rect = getStringBoundingBox(c, 0,0);
     return rect.width;
 }
 
-//-----------------------------------------------------------
-ofRectangle ofTrueTypeFont::getStringBoundingBox(string c, float x, float y, bool vflip) const{
-	ofMesh mesh = getStringMesh(c,x,y,vflip);
-	ofRectangle bb(std::numeric_limits<float>::max(),std::numeric_limits<float>::max(),0,0);
-	float maxX = std::numeric_limits<float>::min();
-	float maxY = std::numeric_limits<float>::min();
-	for(const auto & v: mesh.getVertices()){
-		bb.x = min(v.x,bb.x);
-		bb.y = min(v.y,bb.y);
-		maxX = max(v.x,maxX);
-		maxY = max(v.y,maxY);
-	}
-	bb.width = maxX - bb.x;
-	bb.height = maxY - bb.y;
-	return bb;
+
+ofRectangle ofTrueTypeFont::getStringBoundingBox(string c, float x, float y){
+
+    ofRectangle myRect;
+
+    if (!bLoadedOk){
+    	ofLogError("ofTrueTypeFont") << "getStringBoundingBox(): font not allocated";
+    	return myRect;
+    }
+
+	GLint		index	= 0;
+	GLfloat		xoffset	= 0;
+	GLfloat		yoffset	= 0;
+    int         len     = (int)c.length();
+    float       minx    = -1;
+    float       miny    = -1;
+    float       maxx    = -1;
+    float       maxy    = -1;
+
+    if ( len < 1 || cps.empty() ){
+        myRect.x        = 0;
+        myRect.y        = 0;
+        myRect.width    = 0;
+        myRect.height   = 0;
+        return myRect;
+    }
+
+    bool bFirstCharacter = true;
+	while(index < len){
+		int cy = (unsigned char)c[index] - NUM_CHARACTER_TO_START;
+ 	    if (cy < nCharacters){ 			// full char set or not?
+	       if (c[index] == '\n') {
+				yoffset += lineHeight;
+				xoffset = 0 ; //reset X Pos back to zero
+	      } else if (c[index] == ' ') {
+	     		int cy = (int)'p' - NUM_CHARACTER_TO_START;
+				 xoffset += cps[cy].setWidth * letterSpacing * spaceSize;
+				 // zach - this is a bug to fix -- for now, we don't currently deal with ' ' in calculating string bounding box
+		  } else if(cy > -1){
+                GLint height	= cps[cy].height;
+            	GLint bwidth	= cps[cy].width * letterSpacing;
+            	GLint top		= cps[cy].topExtent - cps[cy].height;
+            	GLint lextent	= cps[cy].leftExtent;
+            	float	x1, y1, x2, y2, corr, stretch;
+            	stretch = 0;//(float)visibleBorder * 2;
+				corr = (float)(((fontSize - height) + top) - fontSize);
+				x1		= (x + xoffset + lextent + bwidth + stretch);
+            	y1		= (y + yoffset + height + corr + stretch);
+            	x2		= (x + xoffset + lextent);
+            	y2		= (y + yoffset + -top + corr);
+				xoffset += cps[cy].setWidth * letterSpacing;
+				if (bFirstCharacter == true){
+                    minx = x2;
+                    miny = y2;
+                    maxx = x1;
+                    maxy = y1;
+                    bFirstCharacter = false;
+                } else {
+                    if (x2 < minx) minx = x2;
+                    if (y2 < miny) miny = y2;
+                    if (x1 > maxx) maxx = x1;
+                    if (y1 > maxy) maxy = y1;
+            }
+		  }
+	  	}
+    	index++;
+    }
+
+    myRect.x        = minx;
+    myRect.y        = miny;
+    myRect.width    = maxx-minx;
+    myRect.height   = maxy-miny;
+    return myRect;
 }
 
 //-----------------------------------------------------------
-float ofTrueTypeFont::stringHeight(string c) const{
+float ofTrueTypeFont::stringHeight(string c) {
     ofRectangle rect = getStringBoundingBox(c, 0,0);
     return rect.height;
 }
 
-//-----------------------------------------------------------
-void ofTrueTypeFont::createStringMesh(string str, float x, float y, bool vFlipped) const{
+void ofTrueTypeFont::createStringMesh(string c, float x, float y){
+	GLint		index	= 0;
 	GLfloat		X		= x;
 	GLfloat		Y		= y;
 	int newLineDirection		= 1;
 
-	if(!vFlipped){
+	if(!ofIsVFlipped()){
 		// this would align multiline texts to the last line when vflip is disabled
 		//int lines = ofStringTimesInString(c,"\n");
 		//Y = lines*lineHeight;
 		newLineDirection = -1;
 	}
 
-	int prevCy = -1;
-	utf8::iterator<const char*> it(&str.front(), &str.front(), (&str.back())+1);
-	utf8::iterator<const char*> end((&str.back())+1, &str.front(), (&str.back())+1);
-	while(it != end){
-		try{
-			auto c = *it;
-			int cy = c - NUM_CHARACTER_TO_START;
-			if (cy < nCharacters){ 			// full char set or not?
-				if (c == '\n') {
-					Y += lineHeight*newLineDirection;
-					X = x ; //reset X Pos back to zero
-					prevCy = -1;
-				} else if(cy > -1){
-					X += getKerning(cy,prevCy);
-					drawChar(cy, X, Y, vFlipped);
-					X += cps[cy].advance * letterSpacing;
-				}
-			}
-			++it;
-			prevCy = cy;
-		}catch(...){
-			break;
+	int len = (int)c.length();
+
+	while(index < len){
+		int cy = (unsigned char)c[index] - NUM_CHARACTER_TO_START;
+		if (cy < nCharacters){ 			// full char set or not?
+		  if (c[index] == '\n') {
+
+				Y += lineHeight*newLineDirection;
+				X = x ; //reset X Pos back to zero
+
+		  }else if (c[index] == ' ') {
+				 int cy = (int)'p' - NUM_CHARACTER_TO_START;
+				 X += cps[cy].setWidth * letterSpacing * spaceSize;
+		  } else if(cy > -1){
+				drawChar(cy, X, Y);
+				X += cps[cy].setWidth * letterSpacing;
+		  }
 		}
+		index++;
 	}
 }
 
-//-----------------------------------------------------------
-const ofMesh & ofTrueTypeFont::getStringMesh(string c, float x, float y, bool vFlipped) const{
+ofMesh & ofTrueTypeFont::getStringMesh(string c, float x, float y){
 	stringQuads.clear();
-	createStringMesh(c,x,y,vFlipped);
+	createStringMesh(c,x,y);
 	return stringQuads;
 }
 
-//-----------------------------------------------------------
-const ofTexture & ofTrueTypeFont::getFontTexture() const{
+ofTexture & ofTrueTypeFont::getFontTexture(){
 	return texAtlas;
 }
 
-//-----------------------------------------------------------
-void ofTrueTypeFont::drawString(string c, float x, float y) const{
-	if (!bLoadedOk){
-		ofLogError("ofTrueTypeFont") << "drawString(): font not allocated";
-		return;
+//=====================================================================
+void ofTrueTypeFont::drawString(string c, float x, float y) {
+	
+	/*glEnable(GL_BLEND);
+	 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	 texAtlas.draw(0,0);*/
+	
+	if(bFullCharacterSet && encoding==OF_ENCODING_UTF8){
+		string o;
+		Poco::TextConverter(Poco::UTF8Encoding(),Poco::Latin9Encoding()).convert(c,o);
+		c=o;
 	}
 	
-	ofGetCurrentRenderer()->drawString(c,x,y,1.0, OF_BITMAPMODE_SCREEN);
+	if (!bLoadedOk){
+		ofLogError("ofTrueTypeFont") << "drawString(): font not allocated: line " << __LINE__ << " in " << __FILE__;
+		return;
+	};
+	
+	bool alreadyBinded = binded;
+
+	if(!alreadyBinded) bind();
+	createStringMesh(c,x,y);
+	if(!alreadyBinded) unbind();
 
 }
 
 //-----------------------------------------------------------
-void ofTrueTypeFont::drawStringAsShapes(string str, float x, float y) const{
+void ofTrueTypeFont::bind(){
+	if(!binded){
+	    // we need transparency to draw text, but we don't know
+	    // if that is set up in outside of this function
+	    // we "pushAttrib", turn on alpha and "popAttrib"
+	    // http://www.opengl.org/documentation/specs/man_pages/hardcopy/GL/html/gl/pushattrib.html
+
+	    // **** note ****
+	    // I have read that pushAttrib() is slow, if used often,
+	    // maybe there is a faster way to do this?
+	    // ie, check if blending is enabled, etc...
+	    // glIsEnabled().... glGet()...
+	    // http://www.opengl.org/documentation/specs/man_pages/hardcopy/GL/html/gl/get.html
+	    // **************
+		// (a) record the current "alpha state, blend func, etc"
+
+		blend_enabled = glIsEnabled(GL_BLEND);
+		texture_2d_enabled = glIsEnabled(GL_TEXTURE_2D);
+		glGetIntegerv( GL_BLEND_SRC, &blend_src );
+		glGetIntegerv( GL_BLEND_DST, &blend_dst );
+
+	    // (b) enable our regular ALPHA blending!
+	    glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		texAtlas.bind();
+		stringQuads.clear();
+		binded = true;
+	}
+}
+
+//-----------------------------------------------------------
+void ofTrueTypeFont::unbind(){
+	if(binded){
+		stringQuads.drawFaces();
+		texAtlas.unbind();
+
+		if( !blend_enabled )
+			glDisable(GL_BLEND);
+		if( !texture_2d_enabled )
+			glDisable(GL_TEXTURE_2D);
+		glBlendFunc( blend_src, blend_dst );
+
+		binded = false;
+	}
+}
+
+//=====================================================================
+void ofTrueTypeFont::drawStringAsShapes(string c, float x, float y) {
 
     if (!bLoadedOk){
     	ofLogError("ofTrueTypeFont") << "drawStringAsShapes(): font not allocated: line " << __LINE__ << " in " << __FILE__;
@@ -1027,6 +1153,13 @@ void ofTrueTypeFont::drawStringAsShapes(string str, float x, float y) const{
 		return;
 	}
 
+	if(bFullCharacterSet && encoding==OF_ENCODING_UTF8){
+		string o;
+		Poco::TextConverter(Poco::UTF8Encoding(),Poco::Latin9Encoding()).convert(c,o);
+		c=o;
+	}
+
+	GLint		index	= 0;
 	GLfloat		X		= x;
 	GLfloat		Y		= y;
 	int newLineDirection		= 1;
@@ -1038,34 +1171,32 @@ void ofTrueTypeFont::drawStringAsShapes(string str, float x, float y) const{
 		newLineDirection = -1;
 	}
 
-    int prevCy = -1;
-	utf8::iterator<const char*> it(&str.front(), &str.front(), (&str.back())+1);
-	utf8::iterator<const char*> end((&str.back())+1, &str.front(), (&str.back())+1);
-	while(it != end){
-		try{
-			auto c = *it;
-			int cy = c - NUM_CHARACTER_TO_START;
-			if (cy < nCharacters){ 			// full char set or not?
-			  if (c == '\n') {
-					Y += lineHeight*newLineDirection;
-					X = x ; //reset X Pos back to zero
-					prevCy = -1;
-			  } else if(cy > -1){
-					X += getKerning(cy,prevCy);
-					drawCharAsShape(c, X, Y, ofIsVFlipped(), ofGetStyle().bFill);
-					X += cps[cy].advance * letterSpacing;
-			  }
-			}
-			++it;
-			prevCy = cy;
-		}catch(...){
-			break;
+	int len = (int)c.length();
+
+	while(index < len){
+		int cy = (unsigned char)c[index] - NUM_CHARACTER_TO_START;
+		if (cy < nCharacters){ 			// full char set or not?
+		  if (c[index] == '\n') {
+
+				Y += lineHeight*newLineDirection;
+				X = x ; //reset X Pos back to zero
+
+		  }else if (c[index] == ' ') {
+				 int cy = (int)'p' - NUM_CHARACTER_TO_START;
+				 X += cps[cy].setWidth * letterSpacing * spaceSize;
+				 //glTranslated(cps[cy].width, 0, 0);
+		  } else if(cy > -1){
+				drawCharAsShape((unsigned char)c[index], X, Y);
+				X += cps[cy].setWidth * letterSpacing;
+				//glTranslated(cps[cy].setWidth, 0, 0);
+		  }
 		}
+		index++;
 	}
 
 }
 
 //-----------------------------------------------------------
-int ofTrueTypeFont::getNumCharacters() const{
+int ofTrueTypeFont::getNumCharacters() {
 	return nCharacters;
 }
